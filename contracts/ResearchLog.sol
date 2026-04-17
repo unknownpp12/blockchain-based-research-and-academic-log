@@ -7,6 +7,7 @@ contract ResearchLog {
         string ipfsHash;
         bytes32 fileHash;
         uint256 timestamp;
+        address uploader;
     }
 
     struct Research {
@@ -18,6 +19,14 @@ contract ResearchLog {
     uint256 public researchCount;
 
     mapping(uint256 => Research) public researches;
+
+    mapping(bytes32 => string) public publicCIDMap;
+
+    mapping(bytes32 => mapping(address => bool)) public fileAccess;
+
+    mapping(bytes32 => bool) public isPublicFile;
+
+    mapping(address => mapping(bytes32 => bool)) public userFileExists;
 
     uint256[] public researchIds;
 
@@ -36,9 +45,17 @@ contract ResearchLog {
 
     function createResearch(
         string memory _ipfsHash,
-        bytes32 _fileHash
+        bytes32 _fileHash,
+        bool _isPublic
     ) public {
 
+        require(
+        !userFileExists[msg.sender][_fileHash],
+        "You already uploaded this file"
+        );
+
+        userFileExists[msg.sender][_fileHash] = true;
+        
         researchCount++;
 
         Research storage r = researches[researchCount];
@@ -50,11 +67,15 @@ contract ResearchLog {
             Version({
                 ipfsHash: _ipfsHash,
                 fileHash: _fileHash,
-                timestamp: block.timestamp
+                timestamp: block.timestamp,
+                uploader: msg.sender
             })
         );
 
         researchIds.push(researchCount);
+
+        fileAccess[_fileHash][msg.sender] = true;
+        isPublicFile[_fileHash] = _isPublic;
 
         emit ResearchCreated(
             researchCount,
@@ -62,6 +83,36 @@ contract ResearchLog {
             _fileHash,
             block.timestamp
         );
+    }
+
+    function grantAccess(bytes32 _fileHash, address _user) public {
+    require(userFileExists[msg.sender][_fileHash], "Not your file");
+
+    fileAccess[_fileHash][_user] = true;
+    }
+
+    function revokeAccess(bytes32 _fileHash, address _user) public {
+        require(userFileExists[msg.sender][_fileHash], "Not your file");
+
+        fileAccess[_fileHash][_user] = false;
+    }
+
+    function hasAccess(bytes32 _fileHash, address _user) public view returns (bool) {
+        return fileAccess[_fileHash][_user] || isPublicFile[_fileHash];
+    }
+
+    function setVisibility(
+        bytes32 _fileHash,
+        bool _isPublic,
+        string memory _publicCID
+    ) public {
+        require(userFileExists[msg.sender][_fileHash], "Not your file");
+
+        isPublicFile[_fileHash] = _isPublic;
+
+        if (_isPublic && bytes(_publicCID).length > 0) {
+            publicCIDMap[_fileHash] = _publicCID;
+        }
     }
 
     function addVersion(
@@ -89,7 +140,8 @@ contract ResearchLog {
             Version({
                 ipfsHash: _ipfsHash,
                 fileHash: _fileHash,
-                timestamp: block.timestamp
+                timestamp: block.timestamp,
+                uploader: msg.sender
             })
         );
 
@@ -106,7 +158,8 @@ contract ResearchLog {
     ) public view returns (
         string memory ipfsHash,
         bytes32 fileHash,
-        uint256 timestamp
+        uint256 timestamp,
+        address uploader
     ) {
 
         Research storage r = researches[_researchId];
@@ -118,7 +171,8 @@ contract ResearchLog {
         return (
             v.ipfsHash,
             v.fileHash,
-            v.timestamp
+            v.timestamp,
+            v.uploader
         );
     }
 
