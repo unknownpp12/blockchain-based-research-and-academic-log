@@ -23,26 +23,10 @@ function App() {
   const [shareAddress, setShareAddress] = useState("");
   const [encryptionKey, setEncryptionKey] = useState(null);
   const [metadataCache, setMetadataCache] = useState({});
-  
-//   useEffect(() => {
-//   const disableRightClick = (e) => {
-//     e.preventDefault();
-//   };
-
-//   const disableSave = (e) => {
-//     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-//       e.preventDefault();
-//     }
-//   };
-
-//   document.addEventListener("contextmenu", disableRightClick);
-//   document.addEventListener("keydown", disableSave);
-
-//   return () => {
-//     document.removeEventListener("contextmenu", disableRightClick);
-//     document.removeEventListener("keydown", disableSave);
-//   };
-// }, []);
+  const [txLoading, setTxLoading] = useState(false);
+  const [loadingResearches, setLoadingResearches] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
     useEffect(() => {
       return () => {
@@ -55,6 +39,45 @@ function App() {
         });
       };
     }, [researches]);
+
+    useEffect(() => {
+      async function autoConnect() {
+        if (!window.ethereum) return;
+
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const accounts = await provider.listAccounts();
+
+          if (accounts.length > 0) {
+            const signer = await provider.getSigner();
+
+            const contractInstance = new ethers.Contract(
+              CONTRACT_ADDRESS,
+              ResearchLog.abi,
+              signer
+            );
+
+            setAccount(accounts[0].address);
+            setContract(contractInstance);
+          }
+        } catch (err) {
+          console.error("Auto connect failed:", err);
+        }
+      }
+
+      autoConnect();
+    }, []);
+
+    useEffect(() => {
+      if (message || error) {
+        const timer = setTimeout(() => {
+          setMessage("");
+          setError("");
+        }, 4000);
+
+        return () => clearTimeout(timer);
+      }
+    }, [message, error]);
 
   function handleFileChange(event) {
   const selectedFile = event.target.files[0];
@@ -212,11 +235,30 @@ function App() {
     const metadataCID = metadataResponse.data.IpfsHash;
     
     console.log("Metadata CID:", metadataCID);
-    const tx = await contract.createResearch(metadataCID, fileHash, isPublic);
+    
+    setTxLoading(true);
+
+    const tx = await contract.createResearch(
+      metadataCID,
+      fileHash,
+      isPublic,
+      {
+        gasLimit: 300000,
+        maxFeePerGas: ethers.parseUnits("20", "gwei"),
+        maxPriorityFeePerGas: ethers.parseUnits("2", "gwei"),
+      }
+    );
+
+    setMessage("Transaction submitted!");
+    setError("");
+
+    setTxLoading(false);
+
+    tx.wait().then(() => {
+      alert("Transaction confirmed!");
+    });
 
     console.log("Transaction sent:", tx.hash);
-
-    await tx.wait();
 
     console.log("Transaction confirmed");
 
@@ -232,6 +274,8 @@ function App() {
 
     catch(error){
       console.error("Error inside reader.onload:",error);
+      setError("Upload failed. Please try again.");
+      setMessage("");
     }
   };
 
@@ -285,11 +329,13 @@ async function openFile(fileCID, fileType, fileHash) {
 
   } catch (err) {
     console.error(err);
-    alert("Cannot open file (wrong wallet, corrupted or access denied)");
+    setError("Cannot open file (wrong wallet, corrupted or access denied)");
+    setMessage("");
   }
 }
 
   async function loadResearches() {
+  setLoadingResearches(true);
   let firstUploadMap = {};
   if (!contract) {
     alert("Connect wallet first");
@@ -413,10 +459,14 @@ async function openFile(fileCID, fileType, fileHash) {
     }
 
     setResearches(allResearches);
+    setLoadingResearches(false);
 
   } catch (error) {
-    console.error(error);
-  }
+      console.error(error);
+      setError("Failed to load researches");
+      setMessage("");
+      setLoadingResearches(false); 
+}
 }
 
   async function grantAccess(fileHash, userAddress) {
@@ -427,12 +477,23 @@ async function openFile(fileCID, fileType, fileHash) {
       const contractWithSigner = contract.connect(signer);
 
       const tx = await contractWithSigner.grantAccess(fileHash, userAddress);
-      await tx.wait();
+      setTxLoading(true);
 
-      alert("Access granted!");
+      alert("Transaction submitted!");
+
+      setTxLoading(false);
+
+      tx.wait().then(() => {
+        setMessage("Access granted!");
+        setError("");
+      });
+
+      setMessage("Access granted!");
+      setError("");
     } catch (err) {
       console.error(err);
-      alert("Error granting access");
+      setError("Error granting access");
+      setMessage("");
     }
   }
 
@@ -448,9 +509,18 @@ async function openFile(fileCID, fileType, fileHash) {
           false,
           ""
         );
-        await tx.wait();
+          setTxLoading(true);
 
-        alert("Set to private");
+          alert("Transaction submitted!");
+
+          setTxLoading(false);
+
+          tx.wait().then(() => {
+            alert("Visibility updated!");
+          });
+
+        setMessage("Visibility updated");
+        setError("");
         return;
       }
 
@@ -463,9 +533,18 @@ async function openFile(fileCID, fileType, fileHash) {
             ""
           );
 
-          await tx.wait();
+          setTxLoading(true);
 
-          alert("Set to public (no re-upload needed)");
+          alert("Transaction submitted!");
+
+          setTxLoading(false);
+
+          tx.wait().then(() => {
+            alert("Visibility updated!");
+          });
+
+        setMessage("Visibility updated");
+        setError("");
           return;
         }
 
@@ -494,7 +573,8 @@ async function openFile(fileCID, fileType, fileHash) {
 
           await tx.wait();
 
-          alert("Set to public");
+        setMessage("Visibility updated");
+        setError("");
         };
 
         input.click();
@@ -502,7 +582,8 @@ async function openFile(fileCID, fileType, fileHash) {
 
     } catch (err) {
       console.error(err);
-      alert("Error updating visibility");
+      setError("Error updating visibility");
+      setMessage("");
     }
   }
 
@@ -540,12 +621,36 @@ function generateCitation(v, format = "APA") {
       <button onClick={connectWallet}>
         Connect MetaMask
       </button>
+      
+      {message && (
+        <p style={{ color: "green" }}>
+          ✔ {message}
+        </p>
+      )}
+
+      {error && (
+        <p style={{ color: "red" }}>
+          ❌ {error}
+        </p>
+      )}
 
       <p>Connected Account: {account}</p>
 
       <button onClick={() => setShowForm(true)}>
       Add Research
       </button>
+
+      {txLoading && (
+        <p style={{ color: "orange" }}>
+          ⏳ Waiting for wallet / transaction...
+        </p>
+      )}
+
+      {loadingResearches && (
+        <p style={{ color: "blue" }}>
+          🔄 Loading researches...
+        </p>
+      )}
 
       <button onClick={loadResearches}>
       Load Researches
