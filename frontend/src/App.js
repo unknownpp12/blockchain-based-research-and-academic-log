@@ -188,7 +188,7 @@ function App() {
     formData.append("file", blob, "encrypted.dat");
     
     const response = await axios.post(
-      "http://localhost:5000/upload-file",
+      "https://blockchain-based-research-and-academic.onrender.com/upload-file",
       formData
     );
 
@@ -203,7 +203,7 @@ function App() {
       publicFormData.append("file", file); // original file
 
       const publicRes = await axios.post(
-        "http://localhost:5000/upload-file",
+        "https://blockchain-based-research-and-academic.onrender.com/upload-file",
         publicFormData
       );
 
@@ -228,7 +228,7 @@ function App() {
     };
 
     const metadataResponse = await axios.post(
-      "http://localhost:5000/upload-json",
+      "https://blockchain-based-research-and-academic.onrender.com/upload-json",
       metadata
     );
 
@@ -559,7 +559,7 @@ async function openFile(fileCID, fileType, fileHash) {
           formData.append("file", file);
 
           const res = await axios.post(
-            "http://localhost:5000/upload-file",
+            "https://blockchain-based-research-and-academic.onrender.com/upload-file",
             formData
           );
 

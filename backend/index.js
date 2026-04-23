@@ -68,4 +68,4 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-app.use(cors({ origin: "http://localhost:3000 "}));
+app.use(cors({ origin: "https://blockchain-based-research-and-academic.onrender.com "}));
