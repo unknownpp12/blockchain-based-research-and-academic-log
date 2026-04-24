@@ -6,6 +6,10 @@ import CryptoJS from "crypto-js";
 import axios from "axios";
 import './App.css';
 import './index.css';
+import Navbar from "./components/Navbar";
+import Hero from "./components/Hero";
+import ResearchList from "./components/ResearchList";
+import ResearchModal from "./components/ResearchModal";
 
 function App() {
 
@@ -624,179 +628,55 @@ function generateCitation(v, format = "APA") {
 
   return "Invalid format";
 }
-  return (
-    <div style={{ padding: "20px" }}
-      onContextMenu={(e) => e.preventDefault()}>
-      <h1>Research Log DApp</h1>
 
-      <button onClick={connectWallet}>
-        Connect MetaMask
-      </button>
-      
-      {message && (
-        <p style={{ color: "green" }}>
-          ✔ {message}
-        </p>
-      )}
+return (
+  <div className="min-h-screen bg-[#050816] text-white p-6">
 
-      {error && (
-        <p style={{ color: "red" }}>
-          ❌ {error}
-        </p>
-      )}
+    <Navbar
+      account={account}
+      connectWallet={connectWallet}
+      loadResearches={loadResearches}
+      setShowForm={setShowForm}
+    />
 
-      <p>Connected Account: {account}</p>
+    <Hero
+      account={account}
+      connectWallet={connectWallet}
+      loadResearches={loadResearches}
+      setShowForm={setShowForm}
+      researches={researches}
+    />
 
-      <button onClick={() => setShowForm(true)}>
-      Add Research
-      </button>
+    <ResearchList
+      researches={researches}
+      account={account}
+      grantAccess={grantAccess}
+      toggleVisibility={toggleVisibility}
+      openFile={openFile}
+      generateCitation={generateCitation}
+      citationFormat={citationFormat}
+      setCitationFormat={setCitationFormat}
+      setShareAddress={setShareAddress}
+    />
 
-      {txLoading && (
-        <p style={{ color: "orange" }}>
-          ⏳ Waiting for wallet / transaction...
-        </p>
-      )}
+    <ResearchModal
+      showForm={showForm}
+      setShowForm={setShowForm}
+      createResearch={createResearch}
+      handleFileChange={handleFileChange}
+      setTitle={setTitle}
+      setDescription={setDescription}
+      setTags={setTags}
+      setCoAuthor={setCoAuthor}
+      setInstitution={setInstitution}
+      setCategory={setCategory}
+      isPublic={isPublic}
+      setIsPublic={setIsPublic}
+    />
 
-      {loadingResearches && (
-        <p style={{ color: "blue" }}>
-          🔄 Loading researches...
-        </p>
-      )}
+  </div>
+);
 
-      <button onClick={loadResearches}>
-      Load Researches
-      </button>
-      {showForm && (
-    <div style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      width: "100%",
-      height: "100%",
-      backgroundColor: "rgba(0,0,0,0.5)"
-  }}>
-    <div style={{
-      background: "white",
-      padding: "20px",
-      margin: "50px auto",
-      width: "400px"
-    }}>
-      <h2>Add Research</h2>
-
-      <input placeholder="Title" onChange={(e) => setTitle(e.target.value)} />
-      <input placeholder="Description" onChange={(e) => setDescription(e.target.value)} />
-      <input placeholder="Tags (comma separated)" onChange={(e) => setTags(e.target.value)} />
-      <input placeholder="Co-author" onChange={(e) => setCoAuthor(e.target.value)} />
-      <input placeholder="Institution" onChange={(e) => setInstitution(e.target.value)} />
-      <input placeholder="Category" onChange={(e) => setCategory(e.target.value)} />
-
-      <label>
-        <input
-          type="checkbox"
-          checked={isPublic}
-          onChange={(e) => setIsPublic(e.target.checked)}
-        />
-        Make Public
-      </label>
-
-      <input type="file" onChange={handleFileChange} />
-      <button
-        onClick={createResearch}
-        disabled={
-          !title || !description || !tags || !file || !institution || !category
-        }
-      >
-        Submit
-      </button>
-      <button onClick={() => setShowForm(false)}>Close</button>
-      </div>
-    </div>
-)}
-      {researches.map((r) => (
-      <div key={r.id} style={{ marginTop: "20px" }}>
-      <h3>Research {r.id}</h3>
-
-      {r.versions.map((v, index) => (
-      <div key={index}>
-        { v.hasAccess && ( <p>Version {index + 1}</p> )}       
-      <p>Title: {v.title}</p>
-      {v.hasAccess && ( <p>Description: {v.description}</p> )}
-      {index === 0 && (
-        <p>Original Uploader: {v.firstUploader || "N/A"}</p>
-      )}
-      {v.hasAccess && (<p>Uploaded By: {v.uploader || "N/A"}</p> )}
-      {v.hasAccess && (<p>Access: {v.isPublic ? "Public": v.uploader === account ? "Owner" : "Restricted" }</p>)}
-      {v.hasAccess && (<p>Type: {v.fileType} </p>)}
-      {v.hasAccess && (<input
-        placeholder="Share with address"
-        onChange={(e) => setShareAddress(e.target.value)}
-      />)}
-
-      {v.hasAccess && (<button onClick={() => grantAccess(v.fileHash, shareAddress)}>
-        Share
-      </button>)}
-
-      {v.hasAccess && (<button onClick={() => toggleVisibility(v)}>
-        {v.isPublic ? "Make Private" : "Make Public"}
-      </button>)}
-
-      {!v.hasAccess && (
-        <p style={{ color: "gray" }}>
-          🔒 Private research (restricted access)
-        </p>
-      )}
-
-      {v.hasAccess && (
-        <button
-          onClick={() => {
-            const cid = v.isPublic ? v.publicCID : v.fileCID;
-
-            console.log("Selected CID:", cid); // debug
-
-            if (!cid || cid === "") {
-              alert("File CID missing");
-              return;
-            }
-
-            openFile(cid, v.fileType, v.fileHash, v.isPublic);
-          }}
-        >
-          Open File
-        </button>
-      )}
-
-      {v.hasAccess && (<button
-        onClick={() => {
-          const citation = generateCitation(v, citationFormat);
-          navigator.clipboard.writeText(citation);
-          alert(`${citationFormat} citation copied!`);
-        }}>
-        Copy Citation
-      </button>
-      )}
-      {v.hasAccess && (<select
-        value={citationFormat}
-        onChange={(e) => setCitationFormat(e.target.value)}>
-        <option value="APA">APA</option>
-        <option value="MLA">MLA</option>
-        <option value="IEEE">IEEE</option>
-      </select>
-      )}
-      <p style={{ fontSize: "12px", color: "gray" }}>
-        {generateCitation(v, citationFormat)}
-      </p>
-      <p style={{ fontSize: "12px", color: "gray" }}>
-        {v.isPublic ? "Publicly accessible" : "Accessible only via ResearchLog app"}
-      </p>
-        {v.hasAccess && (<p>Hash: {v.fileHash}</p> )}
-        <p>Timestamp: {v.timestamp}</p>
-      </div>
-    ))}
-      </div>
-))}
-
-    </div>
-  );
 }
 
 export default App;
