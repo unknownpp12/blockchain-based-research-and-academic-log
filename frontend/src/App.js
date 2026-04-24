@@ -436,6 +436,7 @@ async function openFile(fileCID, fileType, fileHash, isPublic) {
           }
         }
       console.log("Metadata:",metadata);
+      const hasAccess = await contract.hasAccess(fileHash, account);
 
         if(metadata.fileCID ){
         versions.push({
@@ -443,7 +444,7 @@ async function openFile(fileCID, fileType, fileHash, isPublic) {
           fileType: metadata.fileType,
           fileCID: metadata.fileCID,
           title: metadata.title,
-          description: metadata.description,
+          description: hasAccess ? metadata.description : "",
           fileHash: fileHash,
           uploader: uploader,
           firstUploader: firstUploadMap[hash]?.uploader || "Unknown",
@@ -451,6 +452,7 @@ async function openFile(fileCID, fileType, fileHash, isPublic) {
           coAuthor: metadata.coAuthor,
           isPublic: isPublic,
           publicCID: publicCID,
+          hasAccess: hasAccess,
         });
       }
       } catch (error) {
@@ -715,36 +717,43 @@ function generateCitation(v, format = "APA") {
 
       {r.versions.map((v, index) => (
       <div key={index}>
-        <p>Version {index + 1}</p>
+        { v.hasAccess && ( <p>Version {index + 1}</p> )}       
       <p>Title: {v.title}</p>
-      <p>Description: {v.description}</p>
+      {v.hasAccess && ( <p>Description: {v.description}</p> )}
       {index === 0 && (
         <p>Original Uploader: {v.firstUploader || "N/A"}</p>
       )}
-      <p>Uploaded By: {v.uploader || "N/A"}</p>
-      <p>Access: {v.isPublic ? "Public": v.uploader === account ? "Owner" : "Restricted" }</p>
-      <p>Type: {v.fileType} </p>
-      <input
+      {v.hasAccess && (<p>Uploaded By: {v.uploader || "N/A"}</p> )}
+      {v.hasAccess && (<p>Access: {v.isPublic ? "Public": v.uploader === account ? "Owner" : "Restricted" }</p>)}
+      {v.hasAccess && (<p>Type: {v.fileType} </p>)}
+      {v.hasAccess && (<input
         placeholder="Share with address"
         onChange={(e) => setShareAddress(e.target.value)}
-      />
+      />)}
 
-      <button onClick={() => grantAccess(v.fileHash, shareAddress)}>
+      {v.hasAccess && (<button onClick={() => grantAccess(v.fileHash, shareAddress)}>
         Share
-      </button>
+      </button>)}
 
-      <button onClick={() => toggleVisibility(v)}>
+      {v.hasAccess && (<button onClick={() => toggleVisibility(v)}>
         {v.isPublic ? "Make Private" : "Make Public"}
-      </button>
+      </button>)}
 
-      <button
+      {!v.hasAccess && (
+        <p style={{ color: "gray" }}>
+          🔒 Private research (restricted access)
+        </p>
+      )}
+
+      {v.hasAccess &&(<button
         disabled={!v.isPublic && v.uploader !== account}
         onClick={() => openFile(v.isPublic ? v.publicCID : v.fileCID, v.fileType, v.fileHash, v.isPublic)}
       >
         Open File
       </button>
+      )}
 
-      <button
+      {v.hasAccess && (<button
         onClick={() => {
           const citation = generateCitation(v, citationFormat);
           navigator.clipboard.writeText(citation);
@@ -752,20 +761,22 @@ function generateCitation(v, format = "APA") {
         }}>
         Copy Citation
       </button>
-      <select
+      )}
+      {v.hasAccess && (<select
         value={citationFormat}
         onChange={(e) => setCitationFormat(e.target.value)}>
         <option value="APA">APA</option>
         <option value="MLA">MLA</option>
         <option value="IEEE">IEEE</option>
       </select>
+      )}
       <p style={{ fontSize: "12px", color: "gray" }}>
         {generateCitation(v, citationFormat)}
       </p>
       <p style={{ fontSize: "12px", color: "gray" }}>
         {v.isPublic ? "Publicly accessible" : "Accessible only via ResearchLog app"}
       </p>
-        <p>Hash: {v.fileHash}</p>
+        {v.hasAccess && (<p>Hash: {v.fileHash}</p> )}
         <p>Timestamp: {v.timestamp}</p>
       </div>
     ))}
