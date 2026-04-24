@@ -4,6 +4,8 @@ import ResearchLog from "./contracts/ResearchLog.json";
 import { CONTRACT_ADDRESS } from "./config";
 import CryptoJS from "crypto-js";
 import axios from "axios";
+import './App.css';
+import './index.css';
 
 function App() {
 
