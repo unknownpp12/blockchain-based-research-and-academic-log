@@ -86,7 +86,7 @@ function App() {
 
   async function connectWallet() {
     if (!window.ethereum) {
-      alert("MetaMask not installed");
+      alert("Please open this app inside MetaMask mobile browser");
       return;
     }
 
@@ -286,16 +286,24 @@ function App() {
   }
 }
 
-async function openFile(fileCID, fileType, fileHash) {
+async function openFile(fileCID, fileType, fileHash, isPublic) {
   try {
 
     const hasAccess = await contract.hasAccess(fileHash, account);
-
+    
     if (!hasAccess) {
       alert("You don't have access to this file");
       return;
     }
 
+    if (isPublic) {
+      window.open(
+        `https://gateway.pinata.cloud/ipfs/${fileCID}`,
+        "_blank"
+      );
+      return;
+    }
+    
     if (!encryptionKey) {
       alert("Connect wallet first");
       return;
@@ -307,26 +315,26 @@ async function openFile(fileCID, fileType, fileHash) {
       `https://gateway.pinata.cloud/ipfs/${fileCID}`,
       { responseType: "text" }
     );
-
+    
     const encryptedData = res.data;
-
+    
     const decrypted = CryptoJS.AES.decrypt(encryptedData, key)
-      .toString(CryptoJS.enc.Utf8);
-
+    .toString(CryptoJS.enc.Utf8);
+    
     if (!decrypted) throw new Error("Decryption failed");
-
+    
     const binary = atob(decrypted);
     const u8 = new Uint8Array(binary.length);
-
+    
     for (let i = 0; i < binary.length; i++) {
       u8[i] = binary.charCodeAt(i);
     }
-
+    
     const blob = new Blob([u8], { type: fileType });
     const url = URL.createObjectURL(blob);
-
+    
     window.open(url, "_blank");
-
+    
   } catch (err) {
     console.error(err);
     setError("Cannot open file (wrong wallet, corrupted or access denied)");
@@ -731,7 +739,7 @@ function generateCitation(v, format = "APA") {
 
       <button
         disabled={!v.isPublic && v.uploader !== account}
-        onClick={() => openFile(v.fileCID, v.fileType, v.fileHash)}
+        onClick={() => openFile(v.isPublic ? v.publicCID : v.fileCID, v.fileType, v.fileHash, v.isPublic)}
       >
         Open File
       </button>
