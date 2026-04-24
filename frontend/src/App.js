@@ -292,6 +292,11 @@ async function openFile(fileCID, fileType, fileHash, isPublic) {
   try {
 
     const hasAccess = await contract.hasAccess(fileHash, account);
+
+    if(!fileCID) {
+      setError("File CID missing or corrupted");
+      return;
+    }
     
     if (!hasAccess) {
       alert("You don't have access to this file");
@@ -380,7 +385,7 @@ async function openFile(fileCID, fileType, fileHash, isPublic) {
             metadata: metadataCache[ipfsHash]
           };
         }
-
+        
         try {
           const res = await axios.get(
             `https://gateway.pinata.cloud/ipfs/${ipfsHash}`,
@@ -401,7 +406,6 @@ async function openFile(fileCID, fileType, fileHash, isPublic) {
           return null;
         }
       });
-
       const allMetadata = await Promise.all(metadataPromises);
 
       for (let item of allMetadata) {
@@ -444,7 +448,7 @@ async function openFile(fileCID, fileType, fileHash, isPublic) {
         versions.push({
           metadataCID: ipfsHash,
           fileType: metadata.fileType,
-          fileCID: metadata.fileCID,
+          fileCID: metadata.fileCID || null,
           title: metadata.title,
           description: hasAccess ? metadata.description : "",
           fileHash: fileHash,
@@ -747,12 +751,23 @@ function generateCitation(v, format = "APA") {
         </p>
       )}
 
-      {v.hasAccess &&(<button
-        disabled={!v.isPublic && v.uploader !== account}
-        onClick={() => openFile(v.isPublic ? v.publicCID : v.fileCID, v.fileType, v.fileHash, v.isPublic)}
-      >
-        Open File
-      </button>
+      {v.hasAccess && (
+        <button
+          onClick={() => {
+            const cid = v.isPublic ? v.publicCID : v.fileCID;
+
+            console.log("Selected CID:", cid); // debug
+
+            if (!cid || cid === "") {
+              alert("File CID missing");
+              return;
+            }
+
+            openFile(cid, v.fileType, v.fileHash, v.isPublic);
+          }}
+        >
+          Open File
+        </button>
       )}
 
       {v.hasAccess && (<button
