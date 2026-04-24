@@ -26,11 +26,11 @@ function App() {
   const [category, setCategory] = useState("");
   const [citationFormat, setCitationFormat] = useState("APA");
   const [isPublic, setIsPublic] = useState(false);
-  const [shareAddress, setShareAddress] = useState("");
+  const [setShareAddress] = useState("");
   const [encryptionKey, setEncryptionKey] = useState(null);
   const [metadataCache, setMetadataCache] = useState({});
-  const [txLoading, setTxLoading] = useState(false);
-  const [loadingResearches, setLoadingResearches] = useState(false);
+  const [setTxLoading] = useState(false);
+  const [setLoadingResearches] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
