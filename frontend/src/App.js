@@ -243,12 +243,7 @@ function App() {
     const tx = await contract.createResearch(
       metadataCID,
       fileHash,
-      isPublic,
-      {
-        gasLimit: 300000,
-        maxFeePerGas: ethers.parseUnits("20", "gwei"),
-        maxPriorityFeePerGas: ethers.parseUnits("2", "gwei"),
-      }
+      isPublic
     );
 
     setMessage("Transaction submitted!");
@@ -416,7 +411,7 @@ async function openFile(fileCID, fileType, fileHash, isPublic) {
         const [ipfsHash, fileHash, timestamp, uploader] = version;
 
         const isPublic = await contract.isPublicFile(fileHash);
-        const publicCID = await contract.publicCIDMap(fileHash);
+        const publicCID = metadata.publicCID || await contract.publicCIDMap(fileHash);
 
         console.log("Version:", version);
         
@@ -444,7 +439,7 @@ async function openFile(fileCID, fileType, fileHash, isPublic) {
       console.log("Metadata:",metadata);
       const hasAccess = await contract.hasAccess(fileHash, account);
 
-        if(metadata.fileCID ){
+        if(metadata.fileCID || publicCID){
         versions.push({
           metadataCID: ipfsHash,
           fileType: metadata.fileType,
