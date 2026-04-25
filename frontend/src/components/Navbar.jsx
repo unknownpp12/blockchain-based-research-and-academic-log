@@ -7,19 +7,3 @@ export default function Navbar({ account, connectWallet, loadResearches, setShow
       </header>
     );
    }
-
-        // <div className="flex gap-3">
-        //   <button className="btn-secondary">Home</button>
-
-        //   <button onClick={loadResearches} className="btn-secondary">
-        //     Load
-        //   </button>
-
-        //   <button onClick={() => setShowForm(true)} className="btn-secondary">
-        //     Add
-        //   </button>
-
-        //   <button onClick={connectWallet} className="btn-primary">
-        //     {account ? "Connected" : "Connect"}
-        //   </button>
-        // </div>

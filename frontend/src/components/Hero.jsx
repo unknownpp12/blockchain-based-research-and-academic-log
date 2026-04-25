@@ -30,16 +30,15 @@ export default function Hero({ account, connectWallet, loadResearches, setShowFo
           </button>
         </div>
 
-        <div className="mt-6">
-          <p>Wallet: {shortAccount}</p>
-          <p>Research: {researches.length}</p>
+        <div className="mt-6 text-gray-400">
+          <p>Research count: {researches.length}</p>
         </div>
       </div>
 
       {/* RIGHT */}
       <div className="card p-6">
         <p className="text-gray-400 text-sm">Connected Account</p>
-        <p className="mb-4">{account || "None"}</p>
+        <p className="mb-4">{shortAccount }</p>
 
         <p className="text-gray-500 text-sm">
           Use MetaMask to upload and access encrypted research.

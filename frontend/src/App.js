@@ -26,11 +26,11 @@ function App() {
   const [category, setCategory] = useState("");
   const [citationFormat, setCitationFormat] = useState("APA");
   const [isPublic, setIsPublic] = useState(false);
-  const [setShareAddress] = useState("");
+  const [shareAddress, setShareAddress] = useState("");
   const [encryptionKey, setEncryptionKey] = useState(null);
   const [metadataCache, setMetadataCache] = useState({});
-  const [setTxLoading] = useState(false);
-  const [setLoadingResearches] = useState(false);
+  const [txLoading, setTxLoading] = useState(false);
+  const [loadingResearches, setLoadingResearches] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -657,6 +657,9 @@ return (
       citationFormat={citationFormat}
       setCitationFormat={setCitationFormat}
       setShareAddress={setShareAddress}
+      txLoading={txLoading}
+      loadingResearches={loadingResearches}
+      shareAddress={shareAddress}
     />
 
     <ResearchModal
