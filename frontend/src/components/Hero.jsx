@@ -36,11 +36,11 @@ export default function Hero({ account, connectWallet, loadResearches, setShowFo
       </div>
 
       {/* RIGHT */}
-      <div className="card p-6">
-        <p className="text-gray-400 text-sm">Connected Account</p>
+      <div className="p-6 rounded-xl bg-gradient-to-br from-purple-600 via-blue-500 to-pink-500 text-white shadow-lg">
+        <p className="text-white/80 text-sm">Connected Account</p>
         <p className="mb-4">{shortAccount }</p>
 
-        <p className="text-gray-500 text-sm">
+        <p className="text-white/70 text-sm">
           Use MetaMask to upload and access encrypted research.
         </p>
       </div>

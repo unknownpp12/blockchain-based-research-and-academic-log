@@ -95,7 +95,7 @@ export default function ResearchCard({
                     placeholder="Share address"
                     value={shareAddress}
                     onChange={(e) => setShareAddress(e.target.value)}
-                    className="input mb-2"
+                    className="input mb-2 text-black border-gray-700 placeholder-gray-400"
                   />
 
                   <div className="flex flex-wrap gap-2">
@@ -144,7 +144,7 @@ export default function ResearchCard({
                   <select
                     value={citationFormat}
                     onChange={(e) => setCitationFormat(e.target.value)}
-                    className="input mt-2"
+                    className="input mt-2 text-black border-gray-700 placeholder-gray-400"
                   >
                     <option value="APA">APA</option>
                     <option value="MLA">MLA</option>
