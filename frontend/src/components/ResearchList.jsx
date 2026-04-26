@@ -4,7 +4,7 @@ export default function ResearchList(props) {
   const { researches } = props;
 
   if (props.loadingResearches) {
-  return <p className="mt-10 text-gray-400">Loading researches...</p>;
+  return <p className="mt-10 text-gray-400 md:ml-8">Loading researches...</p>;
   }
   
   if (researches.length === 0) {
@@ -12,11 +12,11 @@ export default function ResearchList(props) {
   }
 
   const myResearches = researches.filter(
-  (r) => r.versions[0]?.uploader === props.account
+  (r) => r.versions[0]?.uploader.toLowerCase() === props.account
   );
 
   const otherResearches = researches.filter(
-    (r) => r.versions[0]?.uploader !== props.account
+    (r) => r.versions[0]?.uploader.toLowerCase() !== props.account
   );
 
   return (

@@ -630,8 +630,11 @@ function generateCitation(v, format = "APA") {
 }
 
 return (
-  <div className="min-h-screen bg-[#050816] text-white p-6">
-
+  <div className="relative min-h-screen bg-[#050816] text-white p-6 overflow-hidden">
+  <div className="absolute top-[-150px] right-[-150px] w-[700px] h-[700px]
+    bg-gradient-to-br from-purple-600 via-pink-500 to-blue-500
+    opacity-40 blur-[140px] pointer-events-none">
+  </div>
     <Navbar
       account={account}
       connectWallet={connectWallet}
@@ -676,7 +679,8 @@ return (
       isPublic={isPublic}
       setIsPublic={setIsPublic}
     />
-
+  <div className="relative z-10">
+  </div>
   </div>
 );
 
