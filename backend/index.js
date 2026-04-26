@@ -8,7 +8,14 @@ const FormData = require("form-data");
 const app = express();
 const upload = multer();
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:3000",
+    "https://blockchain-based-research-and-acade.vercel.app"
+  ],
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"]
+}));
 app.use(express.json());
 
 app.post("/upload-file", upload.single("file"), async (req, res) => {
@@ -68,4 +75,3 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-app.use(cors({ origin: "https://blockchain-based-research-and-academic.onrender.com "}));
