@@ -151,9 +151,7 @@ export default function ResearchCard({
                     <option value="IEEE">IEEE</option>
                   </select>
 
-                  <p className="text-xs text-gray-400 mt-2">
-                    {generateCitation(v, citationFormat)}
-                  </p>
+                  
                 </div>
               )}
             </div>
