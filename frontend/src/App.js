@@ -364,8 +364,7 @@ async function openFile(fileCID, fileType, fileHash, isPublic) {
 
     for (let id of ids) {
       const count = await contract.getVersionCount(id);
-
-      let versions = [];
+     let versions = [];
 
       const versionPromises = [];
 
