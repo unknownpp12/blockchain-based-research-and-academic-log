@@ -8,36 +8,65 @@ export function useWallet() {
   const [account, setAccount] = useState("");
   const [contract, setContract] = useState(null);
   const [encryptionKey, setEncryptionKey] = useState(null);
+  const [hasAuthorizedWallet, setHasAuthorizedWallet] = useState(false);
 
-  // Auto-connect if wallet is already authorized
   useEffect(() => {
-    async function autoConnect() {
-      if (!window.ethereum) return;
+    if (!window.ethereum) return;
 
-      try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const accounts = await provider.listAccounts();
-
-        if (accounts.length > 0) {
-          const signer = await provider.getSigner();
-
-          const contractInstance = new ethers.Contract(
-            CONTRACT_ADDRESS,
-            ResearchLog.abi,
-            signer
-          );
-
-          setAccount(accounts[0].address);
-          setContract(contractInstance);
-        }
-      } catch (err) {
-        console.error("Auto connect failed:", err);
+    const handleAccountsChanged = async (accounts) => {
+      if (accounts.length === 0) {
+        setAccount("");
+        setContract(null);
+        setEncryptionKey(null);
+        return;
       }
-    }
 
-    autoConnect();
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+
+      const contractInstance = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        ResearchLog.abi,
+        signer
+      );
+
+      setAccount(accounts[0]);
+      setContract(contractInstance);
+
+      const signature = await signer.signMessage("research-encryption-key");
+      const key = CryptoJS.SHA256(signature).toString();
+      setEncryptionKey(key);
+    };
+
+    window.ethereum.on("accountsChanged", handleAccountsChanged);
+
+    return () => {
+      window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
+    };
   }, []);
 
+  useEffect(() => {
+  async function checkAuthorized() {
+    if (!window.ethereum) return;
+
+    try {
+      const accounts = await window.ethereum.request({
+        method: "eth_accounts",
+      });
+
+      if (accounts.length > 0) {
+        setHasAuthorizedWallet(true); // wallet previously connected
+      } else {
+        setHasAuthorizedWallet(false);
+      }
+    } catch (err) {
+      console.error("Auth check failed:", err);
+    }
+  }
+
+  checkAuthorized();
+}, []);
+  
   async function connectWallet() {
     if (!window.ethereum) {
       alert("Please open this app inside MetaMask mobile browser");
@@ -69,5 +98,5 @@ export function useWallet() {
     console.log("Contract connected:", contractInstance);
   }
 
-  return { account, contract, encryptionKey, connectWallet };
+  return { account, contract, encryptionKey, connectWallet, hasAuthorizedWallet };
 }

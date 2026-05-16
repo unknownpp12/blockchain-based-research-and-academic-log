@@ -14,15 +14,16 @@ import ResearchModal from "./Designcomponents/ResearchModal";
 
 function App() {
   const [showForm, setShowForm] = useState(false);
-  const [shareAddress, setShareAddress] = useState("");
+  const [shareAddresses, setShareAddresses] = useState({});
   const [citationFormat, setCitationFormat] = useState("APA");
 
-  const { setMessage, setError } = useNotification();
+  const { message, setMessage, error, setError } = useNotification();
   const { account, contract, encryptionKey, connectWallet } = useWallet();
 
   const {
     researches,
     setTitle,
+    setAuthor,
     setDescription,
     setTags,
     setCoAuthor,
@@ -37,21 +38,28 @@ function App() {
     loadResearches,
     grantAccess,
     toggleVisibility,
-  } = useResearch({ contract, account, encryptionKey, setMessage, setError });
+  } = useResearch({ contract, account, encryptionKey, setMessage, setError});
 
   // Wrap createResearch to also close the modal on success
   async function handleCreateResearch() {
     const success = await createResearch();
     if (success) setShowForm(false);
+    return success;
   }
 
   return (
     <div className="relative min-h-screen bg-[#050816] text-white p-6 overflow-hidden">
       <div
-        className="absolute top-[-150px] right-[-150px] w-[700px] h-[700px]
+        className="fixed top-[-150px] right-[-150px] w-[700px] h-[700px]
           bg-gradient-to-br from-purple-600 via-pink-500 to-blue-500
-          opacity-40 blur-[140px] pointer-events-none"
+          opacity-40 blur-[140px] pointer-events-none z-0"
       />
+      {(message || error) && (
+        <div className="relative z-20 mt-6 md:ml-8">
+          {message && <p className="text-green-300">{message}</p>}
+          {error && <p className="text-red-300">{error}</p>}
+        </div>
+      )}
 
       <Navbar
         account={account}
@@ -77,10 +85,12 @@ function App() {
         generateCitation={generateCitation}
         citationFormat={citationFormat}
         setCitationFormat={setCitationFormat}
-        setShareAddress={setShareAddress}
+        setShareAddresses={setShareAddresses}
         txLoading={txLoading}
         loadingResearches={loadingResearches}
-        shareAddress={shareAddress}
+        shareAddresses={shareAddresses}
+        setMessage={setMessage}
+        setError={setError}
       />
 
       <ResearchModal
@@ -89,6 +99,7 @@ function App() {
         createResearch={handleCreateResearch}
         handleFileChange={handleFileChange}
         setTitle={setTitle}
+        setAuthor={setAuthor}
         setDescription={setDescription}
         setTags={setTags}
         setCoAuthor={setCoAuthor}
@@ -96,6 +107,7 @@ function App() {
         setCategory={setCategory}
         isPublic={isPublic}
         setIsPublic={setIsPublic}
+        txLoading={txLoading}
       />
 
       <div className="relative z-10" />

@@ -13,6 +13,7 @@ contract ResearchLog {
     struct Research {
         uint256 id;
         address author;
+        uint256 ownerResearchNumber;
         Version[] versions;
     }
 
@@ -28,11 +29,14 @@ contract ResearchLog {
 
     mapping(address => mapping(bytes32 => bool)) public userFileExists;
 
+    mapping(address => uint256) public ownerResearchCount;
+
     uint256[] public researchIds;
 
     event ResearchCreated(
         uint256 indexed researchId,
         address indexed author,
+        uint256 ownerResearchNumber,
         bytes32 fileHash,
         uint256 timestamp
     );
@@ -58,10 +62,13 @@ contract ResearchLog {
         
         researchCount++;
 
+        ownerResearchCount[msg.sender]++;
+
         Research storage r = researches[researchCount];
 
         r.id = researchCount;
         r.author = msg.sender;
+        r.ownerResearchNumber = ownerResearchCount[msg.sender];
 
         r.versions.push(
             Version({
@@ -80,6 +87,7 @@ contract ResearchLog {
         emit ResearchCreated(
             researchCount,
             msg.sender,
+            ownerResearchCount[msg.sender],
             _fileHash,
             block.timestamp
         );

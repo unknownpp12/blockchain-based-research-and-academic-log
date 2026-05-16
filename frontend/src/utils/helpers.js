@@ -22,7 +22,9 @@ export function generateCitation(v, format = "APA") {
   const year = new Date(Number(v.timestamp)).getFullYear();
 
   const author =
-    v.coAuthor && v.coAuthor.trim() !== ""
+    v.author && v.author.trim() !== ""
+      ? v.author
+      : v.coAuthor && v.coAuthor.trim() !== ""
       ? v.coAuthor
       : v.uploader || "Unknown Author";
 

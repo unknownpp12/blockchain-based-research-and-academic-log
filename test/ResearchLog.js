@@ -12,7 +12,7 @@ describe("ResearchLog Contract", function () {
     const fileHash =
       "0x1111111111111111111111111111111111111111111111111111111111111111";
 
-    await researchLog.createResearch("QmTestCID123", fileHash);
+    await researchLog.createResearch("QmTestCID123", fileHash, false);
 
     const version = await researchLog.getVersion(1, 0);
 
@@ -35,7 +35,7 @@ describe("ResearchLog Contract", function () {
     const hash2 =
       "0x2222222222222222222222222222222222222222222222222222222222222222";
 
-    await researchLog.createResearch("QmCID1", hash1);
+    await researchLog.createResearch("QmCID1", hash1, false);
 
     await researchLog.addVersion(1, "QmCID2", hash2);
 
@@ -56,7 +56,7 @@ describe("ResearchLog Contract", function () {
     const hash =
       "0x1111111111111111111111111111111111111111111111111111111111111111";
 
-    await researchLog.createResearch("QmCID1", hash);
+    await researchLog.createResearch("QmCID1", hash, false);
 
     await expect(
       researchLog.addVersion(1, "QmCID2", hash)
@@ -102,8 +102,8 @@ describe("ResearchLog Contract", function () {
     const hash2 =
       "0x2222222222222222222222222222222222222222222222222222222222222222";
 
-    await researchLog.createResearch("QmCID1", hash1);
-    await researchLog.createResearch("QmCID2", hash2);
+    await researchLog.createResearch("QmCID1", hash1, false);
+    await researchLog.createResearch("QmCID2", hash2, false);
 
     const ids = await researchLog.getResearchIds();
 
@@ -111,4 +111,33 @@ describe("ResearchLog Contract", function () {
 
   });
 
+  it("Should number researches per owner", async function () {
+
+    const [owner, otherUser] = await ethers.getSigners();
+
+    const ResearchLog = await ethers.getContractFactory("ResearchLog");
+    const researchLog = await ResearchLog.deploy();
+
+    await researchLog.waitForDeployment();
+
+    const hash1 =
+      "0x1111111111111111111111111111111111111111111111111111111111111111";
+
+    const hash2 =
+      "0x2222222222222222222222222222222222222222222222222222222222222222";
+
+    const hash3 =
+      "0x3333333333333333333333333333333333333333333333333333333333333333";
+
+    await researchLog.createResearch("QmCID1", hash1, false);
+    await researchLog.connect(otherUser).createResearch("QmCID2", hash2, false);
+    await researchLog.createResearch("QmCID3", hash3, false);
+
+    expect(await researchLog.ownerResearchCount(owner.address)).to.equal(2n);
+    expect(await researchLog.ownerResearchCount(otherUser.address)).to.equal(1n);
+    expect(await researchLog.getOwnerResearchNumber(1)).to.equal(1n);
+    expect(await researchLog.getOwnerResearchNumber(2)).to.equal(1n);
+    expect(await researchLog.getOwnerResearchNumber(3)).to.equal(2n);
+
+  });
 });

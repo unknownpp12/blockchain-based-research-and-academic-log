@@ -12,11 +12,17 @@ export default function ResearchList(props) {
   }
 
   const myResearches = researches.filter(
-  (r) => r.versions[0]?.uploader.toLowerCase() === props.account
+    (r) =>
+      r.versions[0]?.uploader &&
+      props.account &&
+      r.versions[0].uploader.toLowerCase() === props.account.toLowerCase()
   );
 
   const otherResearches = researches.filter(
-    (r) => r.versions[0]?.uploader.toLowerCase() !== props.account
+    (r) =>
+      !props.account ||
+      !r.versions[0]?.uploader ||
+      r.versions[0].uploader.toLowerCase() !== props.account.toLowerCase()
   );
 
   return (
@@ -24,9 +30,12 @@ export default function ResearchList(props) {
 
     {/* LEFT: YOUR FILES */}
     <div className="w-1/2 flex flex-col gap-6">
+    <div className="inline-flex w-fit rounded-full border border-blue-400/30 bg-blue-500/15 px-3 py-1 text-sm text-blue-200">
+      My files
+    </div>
       {myResearches.map((r) => (
         <div key={r.id}>
-          <h2 className="text-xl">Research {r.id}</h2>
+          <h2 className="text-xl">Research {r.ownerResearchNumber || r.id}</h2>
 
           <div className="flex flex-col gap-4">
             {r.versions.map((v, i) => (
@@ -34,8 +43,8 @@ export default function ResearchList(props) {
                {...props} v={v} 
                index={i} researchId={r.id} 
                txLoading={props.txLoading}
-               shareAddress={props.shareAddress}
-               setShareAddress={props.setShareAddress} />
+               shareAddresses={props.shareAddresses}
+               setShareAddresses={props.setShareAddresses} />
             ))}
           </div>
         </div>
@@ -44,9 +53,13 @@ export default function ResearchList(props) {
 
     {/* RIGHT: OTHERS */}
     <div className="w-1/2 flex flex-col gap-6">
+    <div className="inline-flex w-fit rounded-full border border-purple-400/30 bg-purple-500/15 px-3 py-1 text-sm text-purple-200">
+      Other's files
+    </div>
+
       {otherResearches.map((r) => (
         <div key={r.id}>
-          <h2 className="text-xl">Research {r.id}</h2>
+          <h2 className="text-xl">Research {r.ownerResearchNumber || r.id}</h2>
 
           <div className="flex flex-col gap-4">
             {r.versions.map((v, i) => (

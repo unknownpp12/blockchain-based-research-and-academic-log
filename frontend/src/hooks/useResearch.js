@@ -10,6 +10,32 @@ import {
 } from "../services/ipfsService";
 import { arrayBufferToBase64 } from "../utils/helpers";
 
+const ALLOWED_DOCUMENT_EXTENSIONS = [
+  ".pdf",
+  ".txt",
+  ".docx",
+  ".xml",
+  ".odt",
+  ".rtf",
+  ".md",
+  ".xlsx",
+  ".csv",
+  ".pptx",
+  ".html",
+  ".htm",
+  ".doc",
+  ".wps",
+  ".hwp",
+  ".epub"
+];
+
+function isAllowedDocument(file) {
+  const fileName = file?.name?.toLowerCase() || "";
+  return ALLOWED_DOCUMENT_EXTENSIONS.some((extension) =>
+    fileName.endsWith(extension)
+  );
+}
+
 export function useResearch({ contract, account, encryptionKey, setMessage, setError }) {
   const [researches, setResearches] = useState([]);
   const [file, setFile] = useState(null);
@@ -23,6 +49,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
   const [metadataCache, setMetadataCache] = useState({});
   const [txLoading, setTxLoading] = useState(false);
   const [loadingResearches, setLoadingResearches] = useState(false);
+  const [author, setAuthor] = useState("");
 
   // Cleanup blob URLs when researches update
   useEffect(() => {
@@ -39,6 +66,12 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
 
   function handleFileChange(event) {
     const selectedFile = event.target.files[0];
+    if (selectedFile && !isAllowedDocument(selectedFile)) {
+      alert("Only document files are allowed");
+      event.target.value = "";
+      setFile(null);
+      return;
+    }
     setFile(selectedFile);
   }
 
@@ -48,8 +81,12 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
     );
 
     if (!confirmUpload) return;
-    if (!title || !description || !tags || !file || !institution || !category) {
+    if (!title || !description || !tags || !file || !institution || !category || !author) {
       alert("Please fill all required fields");
+      return;
+    }
+    if (!isAllowedDocument(file)) {
+      alert("Only document files are allowed");
       return;
     }
     if (!contract) {
@@ -57,8 +94,14 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
       return;
     }
 
-    try {
+    return new Promise((resolve) => {
       const reader = new FileReader();
+
+        reader.onerror = function () {
+        setError("Could not read selected file");
+        setMessage("");
+        resolve(false);
+      };
 
       reader.onload = async function (e) {
         try {
@@ -120,6 +163,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
             timestamp: Date.now(),
             isPublic: isPublic,
             publicCID: publicCID || null,
+            author
           };
 
           const metadataCID = await uploadMetadataToIPFS(metadata);
@@ -131,44 +175,52 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
 
           setMessage("Transaction submitted!");
           setError("");
-          setTxLoading(false);
 
-          tx.wait().then(() => {
-            alert("Transaction confirmed!");
-          });
+          await tx.wait();
+          await loadResearches();
+
+          setMessage("Research uploaded successfully!");
+          setTxLoading(false);
 
           console.log("Transaction sent:", tx.hash);
 
           // Reset form
           setTitle("");
+          setAuthor("");
           setDescription("");
           setTags("");
           setCoAuthor("");
           setInstitution("");
           setCategory("");
+          setFile(null);
 
-          return true; // Signal success to close the modal
+          resolve(true);
         } catch (error) {
           console.error("Error inside reader.onload:", error);
           setError("Upload failed. Please try again.");
           setMessage("");
+          setTxLoading(false);
+          resolve(false);
         }
       };
-
-      reader.readAsArrayBuffer(file);
-    } catch (error) {
-      console.error("Outer error:", error);
+        reader.readAsArrayBuffer(file);
+      });
     }
-  }
 
   async function openFile(fileCID, fileType, fileHash, isPublic) {
     try {
-      const hasAccess = await contract.hasAccess(fileHash, account);
+      
+      if(!account || !contract){
+        alert("Connect wallet first");
+        return;
+      }
 
       if (!fileCID) {
         setError("File CID missing or corrupted");
         return;
       }
+      
+      const hasAccess = await contract.hasAccess(fileHash, account);
 
       if (!hasAccess) {
         alert("You don't have access to this file");
@@ -215,17 +267,23 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
   }
 
   async function loadResearches() {
-    setLoadingResearches(true);
-    let firstUploadMap = {};
-
-    if (!contract) {
-      alert("Connect wallet first");
+    if (!account || !contract) {
+      setError("Connect wallet first");
+      setMessage("");
       return;
     }
+
+    setLoadingResearches(true);
+    
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const currentAccount = await signer.getAddress();
+
 
     try {
       const ids = await contract.getResearchIds();
       let allResearches = [];
+      let ownerDisplayCounts = {};
 
       for (let id of ids) {
         const count = await contract.getVersionCount(id);
@@ -277,17 +335,8 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
           try {
             console.log("Uploader:", uploader);
 
-            const hash = fileHash;
-            const time = Number(timestamp);
-
-            if (!firstUploadMap[hash]) {
-              firstUploadMap[hash] = { uploader, timestamp: time };
-            } else if (time < firstUploadMap[hash].timestamp) {
-              firstUploadMap[hash] = { uploader, timestamp: time };
-            }
-
             console.log("Metadata:", metadata);
-            const hasAccess = await contract.hasAccess(fileHash, account);
+            const hasAccess = await contract.hasAccess(fileHash, currentAccount);
 
             if (metadata.fileCID || publicCID) {
               versions.push({
@@ -295,10 +344,10 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
                 fileType: metadata.fileType,
                 fileCID: metadata.fileCID || null,
                 title: metadata.title,
+                author: metadata.author || metadata.coAuthor || uploader,
                 description: hasAccess ? metadata.description : "",
                 fileHash: fileHash,
                 uploader: uploader,
-                firstUploader: firstUploadMap[hash]?.uploader || "Unknown",
                 timestamp: timestamp.toString(),
                 coAuthor: metadata.coAuthor,
                 isPublic: isPublicFile,
@@ -312,8 +361,21 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
         }
 
         if (versions.length > 0) {
+          const owner = versions[0].uploader?.toLowerCase();
+          let ownerResearchNumber = null;
+
+          try {
+            ownerResearchNumber = Number(await contract.getOwnerResearchNumber(id));
+          } catch (err) {
+            if (owner) {
+              ownerDisplayCounts[owner] = (ownerDisplayCounts[owner] || 0) + 1;
+              ownerResearchNumber = ownerDisplayCounts[owner];
+            }
+          }
+
           allResearches.push({
             id: id.toString(),
+            ownerResearchNumber: ownerResearchNumber?.toString() || id.toString(),
             versions: versions,
           });
         }
@@ -331,56 +393,79 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
 
   async function grantAccess(fileHash, userAddress) {
     try {
+      if(!account || !contract){
+        alert("Connect wallet first");
+        return;
+      }
+
+      if (!userAddress || userAddress.trim() === "") {
+        alert("Enter address to share");
+        return;
+      }
+
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contractWithSigner = contract.connect(signer);
 
-      const tx = await contractWithSigner.grantAccess(fileHash, userAddress);
       setTxLoading(true);
 
-      alert("Transaction submitted!");
+      const tx = await contractWithSigner.grantAccess(fileHash, userAddress);
+      
+      await tx.wait();
+
+      alert("✅ File shared successfully!");
+      setMessage("");
+      setError("");
+
       setTxLoading(false);
 
-      tx.wait().then(() => {
-        setMessage("Access granted!");
-        setError("");
-      });
-
-      setMessage("Access granted!");
-      setError("");
     } catch (err) {
       console.error(err);
-      setError("Error granting access");
-      setMessage("");
+      if (err.code === 4001 || err.code === "ACTION_REJECTED") {
+      setError("Transaction cancelled");
+    } else {
+      setError("Failed to share file");
+    }
+
+    setMessage("");
+    setTxLoading(false);
     }
   }
 
   async function toggleVisibility(v) {
     try {
+      if(!account || !contract){
+        alert("Connect wallet first");
+        return;
+      }
+
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contractWithSigner = contract.connect(signer);
 
       if (v.isPublic) {
-        const tx = await contractWithSigner.setVisibility(v.fileHash, false, "");
         setTxLoading(true);
-        alert("Transaction submitted!");
+        const tx = await contractWithSigner.setVisibility(v.fileHash, false, "");
+        setMessage("Transaction submitted!");
+        setError("");
+        await tx.wait();
+        await loadResearches();
         setTxLoading(false);
-        tx.wait().then(() => alert("Visibility updated!"));
         setMessage("Visibility updated");
         setError("");
         return;
       }
 
       if (!v.isPublic) {
-        if (v.publicCID && v.publicCID !== "") {
-          const tx = await contractWithSigner.setVisibility(v.fileHash, true, "");
+        if (v.publicCID && v.publicCID !== "") {         
           setTxLoading(true);
-          alert("Transaction submitted!");
-          setTxLoading(false);
-          tx.wait().then(() => alert("Visibility updated!"));
-          setMessage("Visibility updated");
+          const tx = await contractWithSigner.setVisibility(v.fileHash, true, "");
+          setMessage("Transaction submitted!");
           setError("");
+          await tx.wait();
+          await loadResearches();
+          setTxLoading(false);
+          setMessage("Visibility updated");
           return;
         }
 
@@ -392,12 +477,17 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
           const selectedFile = e.target.files[0];
           if (!selectedFile) return;
 
+          setTxLoading(true);
           const publicCID = await uploadPublicFileToIPFS(selectedFile);
           const tx = await contractWithSigner.setVisibility(v.fileHash, true, publicCID);
+          setMessage("Transaction submitted!");
+          setError("");
           await tx.wait();
+          await loadResearches();
 
           setMessage("Visibility updated");
           setError("");
+          setTxLoading(false);
         };
 
         input.click();
@@ -406,6 +496,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
       console.error(err);
       setError("Error updating visibility");
       setMessage("");
+      setTxLoading(false);
     }
   }
 
@@ -414,6 +505,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
     researches,
     file,
     title, setTitle,
+    author, setAuthor,
     description, setDescription,
     tags, setTags,
     coAuthor, setCoAuthor,

@@ -11,14 +11,22 @@ export default function ResearchCard({
   generateCitation,
   citationFormat,
   setCitationFormat,
-  setShareAddress,
+  setShareAddresses,
   txLoading,
-  shareAddress,
-  loadingResearches
+  shareAddresses,
+  loadingResearches,
+  setMessage,
+  setError,
 }) {
   const [open, setOpen] = useState(false);
+  const [citationCopied, setCitationCopied] = useState(false);
 
   const canViewDetails = v.isPublic || v.hasAccess;
+
+  const isOwner =
+  v.uploader &&
+  account &&
+  v.uploader.toLowerCase() === account.toLowerCase();
 
   return (
     <div
@@ -40,7 +48,7 @@ export default function ResearchCard({
             </h3>
 
             <p className="text-sm text-gray-500">
-              Original uploader: {v.firstUploader || "N/A"}
+              Author: {v.author || "Unknown"}
             </p>
           </div>
 
@@ -75,7 +83,7 @@ export default function ResearchCard({
 
               {/* LEFT DETAILS */}
               <div className="space-y-1 text-sm">
-                <p><span className="text-gray-400">Original:</span> {v.firstUploader}</p>
+                <p><span className="text-gray-400">Original uploader:</span> {v.firstUploader}</p>
                 <p><span className="text-gray-400">Uploaded By:</span> {v.uploader}</p>
                 <p><span className="text-gray-400">Type:</span> {v.fileType}</p>
               </div>
@@ -85,62 +93,99 @@ export default function ResearchCard({
                 <p><span className="text-gray-400">Hash:</span> {v.fileHash}</p>
                 <p><span className="text-gray-400">Description:</span> {v.description}</p>
                 <p><span className="text-gray-400">Timestamp:</span> {v.timestamp}</p>
+                <p><span className="text-gray-400">Author:</span> {v.author || "Unknown"}</p>
               </div>
 
               {/* ACTIONS FULL WIDTH */}
-              {v.hasAccess && (
-                <div className="col-span-full mt-3 border-t border-white/10 pt-3">
+              <div className="col-span-full mt-3 border-t border-white/10 pt-3">
 
+                {/* Share input (only owner, but stays above buttons) */}
+                {isOwner && (
                   <input
-                    placeholder="Share address"
-                    value={shareAddress}
-                    onChange={(e) => setShareAddress(e.target.value)}
+                    placeholder="Share with address"
+                    value={shareAddresses[v.fileHash] || ""}
+                    onChange={(e) =>
+                      setShareAddresses((prev) => ({
+                        ...prev,
+                        [v.fileHash]: e.target.value,
+                      }))
+                    }
                     className="input mb-2 text-black border-gray-700 placeholder-gray-400"
                   />
+                )}
 
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => grantAccess(v.fileHash)}
-                      className="btn-secondary"
-                      disabled={txLoading}
-                    >
-                      {txLoading ? "Processing..." : "Share"}
-                    </button>
+                {/* 🔥 ALL BUTTONS IN ONE LINE */}
+                <div className="flex flex-wrap items-center gap-2">
 
-                    <button
-                      onClick={() => toggleVisibility(v)}
-                      className="btn-secondary"
-                      disabled={txLoading}
-                    >
-                      {txLoading?"Processing...": v.isPublic? "Make Private": "Make Public"}
-                    </button>
+                  {/* OWNER ONLY */}
+                  {isOwner && (
+                    <>
+                      <button
+                        onClick={() =>
+                          grantAccess(v.fileHash, shareAddresses[v.fileHash])
+                        }
+                        className="btn-secondary"
+                        disabled={txLoading}
+                      >
+                        {txLoading ? "Processing..." : "Share"}
+                      </button>
 
-                    <button
-                      onClick={() =>
-                        openFile(
-                          v.isPublic ? v.publicCID : v.fileCID,
-                          v.fileType,
-                          v.fileHash,
-                          v.isPublic
-                        )
-                      }
-                      className="btn-secondary"
-                    >
-                      Open
-                    </button>
+                      <button
+                        onClick={() => toggleVisibility(v)}
+                        className="btn-secondary"
+                        disabled={txLoading}
+                      >
+                        {txLoading
+                          ? "Processing..."
+                          : v.isPublic
+                          ? "Make Private"
+                          : "Make Public"}
+                      </button>
+                    </>
+                  )}
 
-                    <button
-                      onClick={() => {
-                        const citation = generateCitation(v, citationFormat);
-                        navigator.clipboard.writeText(citation);
-                      }}
-                      className="btn-secondary"
-                      disabled={txLoading}
-                    >
-                      {txLoading ? "Processing..." : "Copy citation"}
-                    </button>
-                  </div>
+                  {/* AVAILABLE TO ALL WITH ACCESS */}
+                  {v.hasAccess && (
+                    <>
+                      <button
+                        onClick={() =>
+                          openFile(
+                            v.isPublic ? v.publicCID : v.fileCID,
+                            v.fileType,
+                            v.fileHash,
+                            v.isPublic
+                          )
+                        }
+                        className="btn-secondary"
+                      >
+                        Open
+                      </button>
+                      <button
+                        onClick={() => {
+                          const citation = generateCitation(v, citationFormat);
+                          navigator.clipboard.writeText(citation);
+                          setMessage("Citation copied!");
+                          setError("");
+                          setCitationCopied(true);
+                          setTimeout(() => setCitationCopied(false), 2500);
+                        }}
+                        className="btn-secondary"
+                        disabled={txLoading}
+                      >
+                        Copy citation
+                      </button>
+                      {citationCopied && (
+                        <span className="text-xs text-green-300">
+                          Citation copied!
+                        </span>
+                      )}
+                    </>
+                  )}
 
+                </div>
+
+                {/* Citation format (keep below but aligned nicely) */}
+                {v.hasAccess && (
                   <select
                     value={citationFormat}
                     onChange={(e) => setCitationFormat(e.target.value)}
@@ -150,16 +195,14 @@ export default function ResearchCard({
                     <option value="MLA">MLA</option>
                     <option value="IEEE">IEEE</option>
                   </select>
+                )}
 
-                  
-                </div>
-              )}
+              </div>
             </div>
           )}
         </div>
       )}
       </div>
-
     </div>
   );
 }

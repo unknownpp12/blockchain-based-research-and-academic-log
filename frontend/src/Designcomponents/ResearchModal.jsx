@@ -1,25 +1,44 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 export default function ResearchModal({
   showForm,
   setShowForm,
   createResearch,
   handleFileChange,
   setTitle,
+  setAuthor,
   setDescription,
   setTags,
   setCoAuthor,
   setInstitution,
   setCategory,
   isPublic,
-  setIsPublic
+  setIsPublic,
+  txLoading
 }) {
   const [fileName, setFileName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef(null);
   const onFileChange = (e) => {
   handleFileChange(e); // keep existing logic
   const file = e.target.files[0];
-  if (file) setFileName(file.name);
+  setFileName(file ? file.name : "");
 };
+    const handleSubmit = async () => {
+    setSubmitting(true);
+    const success = await createResearch();
+
+    if (success) {
+      setFileName("");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+
+    setSubmitting(false);
+  };
+
   if (!showForm) return null;
+  const isSubmitting = submitting || txLoading;
 
   return (
     <div className="fixed inset-0 bg-black/70 flex justify-center items-center">
@@ -39,10 +58,17 @@ export default function ResearchModal({
       className="w-full px-3 py-2 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
     />
 
+    <input
+      placeholder="Author"
+      onChange={(e) => setAuthor(e.target.value)}
+      className="w-full px-3 py-2 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
+    />
+
     <textarea
       placeholder="Description"
+      rows={1}
       onChange={(e) => setDescription(e.target.value)}
-      className="w-full px-3 py-2 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
+      className="w-full px-3 py-2 rounded-lg bg-white text-black placeholder-gray-500 outline-none resize-none"
     />
 
     <input
@@ -84,7 +110,14 @@ export default function ResearchModal({
       <label className="inline-block px-4 py-2 bg-white text-black rounded-lg cursor-pointer text-sm">
         Choose File
         <input
+          ref={fileInputRef}
           type="file"
+          accept=".pdf,.txt,.docx,.xml,.odt,.rtf,.md,.xlsx,.csv,.pptx,.html,.htm,.doc,.wps,.hwp,.epub,
+            application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document,
+            application/xml,text/xml,application/vnd.oasis.opendocument.text,application/rtf,text/markdown,
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,
+            application/vnd.openxmlformats-officedocument.presentationml.presentation,text/html,
+            application/msword"
           onChange={onFileChange}
           className="hidden"
         />
@@ -104,14 +137,16 @@ export default function ResearchModal({
   <div className="flex gap-3 mt-6">
 
     <button
-      onClick={createResearch}
+      onClick={handleSubmit}
+      disabled={isSubmitting}
       className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 rounded-lg font-medium"
     >
-      Submit
+      {isSubmitting ? "Submitting..." : "Submit"}
     </button>
 
     <button
       onClick={() => setShowForm(false)}
+      disabled={isSubmitting}
       className="flex-1 border border-white/20 text-white py-2 rounded-lg"
     >
       Close

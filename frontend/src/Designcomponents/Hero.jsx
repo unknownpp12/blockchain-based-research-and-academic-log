@@ -1,4 +1,4 @@
-export default function Hero({ account, connectWallet, loadResearches, setShowForm, researches }) {
+export default function Hero({ account, connectWallet, loadResearches, setShowForm, researches, hashAuthorizedWallet }) {
   const shortAccount = account
     ? `${account.slice(0, 6)}...${account.slice(-4)}`
     : "Not connected";
@@ -18,14 +18,15 @@ export default function Hero({ account, connectWallet, loadResearches, setShowFo
 
         <div className="flex gap-3 mt-6">
           <button onClick={connectWallet} className="btn-primary">
-            Connect
+            {hashAuthorizedWallet ? "Reconnect Wallet" : "Connect"}
           </button>
 
-          <button onClick={loadResearches} className="btn-secondary">
+          <button onClick={loadResearches} disabled={!account}
+           className={`btn-secondary ${!account ? "opacity-50 cursor-not-allowed" : ""}`}>
             Load
           </button>
 
-          <button onClick={() => setShowForm(true)} className="btn-secondary">
+          <button onClick={() => setShowForm(true)} disabled={!account} className="btn-secondary">
             Add
           </button>
         </div>
