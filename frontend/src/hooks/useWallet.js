@@ -95,7 +95,6 @@ export function useWallet() {
 
     setContract(contractInstance);
 
-    console.log("Contract connected:", contractInstance);
   }
 
   return { account, contract, encryptionKey, connectWallet, hasAuthorizedWallet };

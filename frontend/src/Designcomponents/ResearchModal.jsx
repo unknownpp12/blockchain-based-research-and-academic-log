@@ -13,86 +13,113 @@ export default function ResearchModal({
   setCategory,
   isPublic,
   setIsPublic,
-  txLoading
+  txLoading,
+  file,
+  title,
+  author,
+  description,
+  tags,
+  institution,
+  category,
+  resetResearchForm,
 }) {
   const [fileName, setFileName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
   const onFileChange = (e) => {
-  handleFileChange(e); // keep existing logic
-  const file = e.target.files[0];
-  setFileName(file ? file.name : "");
-};
+    handleFileChange(e); // keep existing logic
+    const file = e.target.files[0];
+    setFileName(file ? file.name : "");
+  };
     const handleSubmit = async () => {
     setSubmitting(true);
     const success = await createResearch();
 
     if (success) {
       setFileName("");
+
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+      resetLocalForm();
+      setShowForm(false);
+    }
+  };
+  const resetLocalForm = () => {
+    setFileName("");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
 
-    setSubmitting(false);
+    resetResearchForm();
   };
 
   if (!showForm) return null;
   const isSubmitting = submitting || txLoading;
 
+  const hasEmptyRequiredField =
+  !title.trim() ||
+  !author.trim() ||
+  !description.trim() ||
+  !tags.trim() ||
+  !institution.trim() ||
+  !category.trim() ||
+  !file;
+
   return (
     <div className="fixed inset-0 bg-black/70 flex justify-center items-center">
       <div className="card p-6 w-[400px]">
-        <div className="w-[420px] rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 p-6 shadow-xl">
+        <div className="w-[420px] relative rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 p-6 shadow-xl">
 
-  <h2 className="text-xl font-semibold text-white mb-4">
-    Add Research
-  </h2>
+          <h2 className="text-xl font-semibold text-white mb-4">
+            Add Research
+          </h2>
 
   {/* INPUTS */}
-  <div className="space-y-3">
+  <div className="space-y-2">
 
     <input
       placeholder="Title"
       onChange={(e) => setTitle(e.target.value)}
-      className="w-full px-3 py-2 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
+      className="w-full px-3 py-1.5 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
     />
 
     <input
       placeholder="Author"
       onChange={(e) => setAuthor(e.target.value)}
-      className="w-full px-3 py-2 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
+      className="w-full px-3 py-1.5 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
     />
 
     <textarea
       placeholder="Description"
       rows={1}
       onChange={(e) => setDescription(e.target.value)}
-      className="w-full px-3 py-2 rounded-lg bg-white text-black placeholder-gray-500 outline-none resize-none"
+      className="w-full px-3 py-1.5 rounded-lg bg-white text-black placeholder-gray-500 outline-none resize-none"
     />
 
     <input
       placeholder="Tags"
       onChange={(e) => setTags(e.target.value)}
-      className="w-full px-3 py-2 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
+      className="w-full px-3 py-1.5 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
     />
 
     <input
       placeholder="Co-author"
       onChange={(e) => setCoAuthor(e.target.value)}
-      className="w-full px-3 py-2 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
+      className="w-full px-3 py-1.5 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
     />
 
     <input
       placeholder="Institution"
       onChange={(e) => setInstitution(e.target.value)}
-      className="w-full px-3 py-2 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
+      className="w-full px-3 py-1.5 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
     />
 
     <input
       placeholder="Category"
       onChange={(e) => setCategory(e.target.value)}
-      className="w-full px-3 py-2 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
+      className="w-full px-3 py-1.5 rounded-lg bg-white text-black placeholder-gray-500 outline-none"
     />
 
     {/* PUBLIC TOGGLE */}
@@ -107,7 +134,7 @@ export default function ResearchModal({
 
     {/* FILE UPLOAD */}
     <div className="mt-2">
-      <label className="inline-block px-4 py-2 bg-white text-black rounded-lg cursor-pointer text-sm">
+      <label className="inline-block px-4 py-1.5 bg-white text-black rounded-lg cursor-pointer text-sm">
         Choose File
         <input
           ref={fileInputRef}
@@ -135,19 +162,24 @@ export default function ResearchModal({
 
   {/* BUTTONS */}
   <div className="flex gap-3 mt-6">
+    {isSubmitting && (
+      <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-black/80 text-white">
+        Uploading research...
+      </div>
+    )}
 
     <button
       onClick={handleSubmit}
-      disabled={isSubmitting}
-      className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 rounded-lg font-medium"
+      disabled={isSubmitting || hasEmptyRequiredField}
+      className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {isSubmitting ? "Submitting..." : "Submit"}
     </button>
 
     <button
-      onClick={() => setShowForm(false)}
+      onClick={() => {resetLocalForm(); setShowForm(false);}}
       disabled={isSubmitting}
-      className="flex-1 border border-white/20 text-white py-2 rounded-lg"
+      className="flex-1 border border-white/20 text-white py-1.5 rounded-lg"
     >
       Close
     </button>

@@ -19,7 +19,11 @@ export function arrayBufferToBase64(buffer) {
  * Supports APA, MLA, and IEEE formats.
  */
 export function generateCitation(v, format = "APA") {
-  const year = new Date(Number(v.timestamp)).getFullYear();
+  const rawTimestamp = Number(v.timestamp);
+  const timestampMs =
+    rawTimestamp < 1000000000000 ? rawTimestamp * 1000 : rawTimestamp;
+
+  const year = new Date(timestampMs).getFullYear();
 
   const author =
     v.author && v.author.trim() !== ""
@@ -29,22 +33,33 @@ export function generateCitation(v, format = "APA") {
       : v.uploader || "Unknown Author";
 
   const title = v.title || "Untitled";
-  const source = "ResearchLog DApp";
+  const sourceParts = [
+  v.institution,
+  v.category,
+  "ResearchLog DApp"
+  ].filter(Boolean);
+  const source = sourceParts.join(". ");
+
+    const tags =
+    Array.isArray(v.tags) && v.tags.length > 0
+      ? ` Keywords: ${v.tags.join(", ")}.`
+      : "";
+
   const link =
     v.isPublic && v.publicCID
       ? `https://gateway.pinata.cloud/ipfs/${v.publicCID}`
-      : "Private/Shared research (open via app)";
+      :  `Private/shared research. File hash: ${v.fileHash}`;
 
   if (format === "APA") {
-    return `${author} (${year}). ${title}. ${source}. ${link}`;
+    return `${author} (${year}). ${title}. ${source}.${tags} ${link}`;
   }
 
   if (format === "MLA") {
-    return `${author}. "${title}." ${source}, ${year}, ${link}.`;
+    return `${author}. "${title}." ${source}, ${year}.${tags} ${link}.`;
   }
 
   if (format === "IEEE") {
-    return `${author}, "${title}," ${source}, ${year}. [Online]. Available: ${link}`;
+    return `${author}, "${title}," ${source}, ${year}.${tags} [Online]. Available: ${link}`;
   }
 
   return "Invalid format";

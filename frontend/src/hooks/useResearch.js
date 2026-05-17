@@ -64,6 +64,11 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
     };
   }, [researches]);
 
+  useEffect(() => {
+  setResearches([]);
+  setMetadataCache({});
+  }, [account]);
+
   function handleFileChange(event) {
     const selectedFile = event.target.files[0];
     if (selectedFile && !isAllowedDocument(selectedFile)) {
@@ -76,22 +81,18 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
   }
 
   async function createResearch() {
-    const confirmUpload = window.confirm(
-      "Do you want to upload this research to IPFS first and only to blockchain after transaction confirmation?"
-    );
 
-    if (!confirmUpload) return;
     if (!title || !description || !tags || !file || !institution || !category || !author) {
       alert("Please fill all required fields");
-      return;
+      return false;
     }
     if (!isAllowedDocument(file)) {
       alert("Only document files are allowed");
-      return;
+      return false;
     }
     if (!contract) {
       alert("Connect wallet first");
-      return;
+      return false;
     }
 
     return new Promise((resolve) => {
@@ -140,13 +141,11 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
           const blob = new Blob([encrypted], { type: "text/plain" });
 
           const ipfsHash = await uploadFileToIPFS(blob, "encrypted.dat");
-          console.log("IPFS CID:", ipfsHash);
 
           // Upload public version if needed
           let publicCID = null;
           if (isPublic) {
             publicCID = await uploadPublicFileToIPFS(file);
-            console.log("Public CID:", publicCID);
           }
 
           // Build and upload metadata
@@ -167,7 +166,6 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
           };
 
           const metadataCID = await uploadMetadataToIPFS(metadata);
-          console.log("Metadata CID:", metadataCID);
 
           setTxLoading(true);
 
@@ -181,8 +179,6 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
 
           setMessage("Research uploaded successfully!");
           setTxLoading(false);
-
-          console.log("Transaction sent:", tx.hash);
 
           // Reset form
           setTitle("");
@@ -206,6 +202,18 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
         reader.readAsArrayBuffer(file);
       });
     }
+
+  function resetResearchForm() {
+    setTitle("");
+    setAuthor("");
+    setDescription("");
+    setTags("");
+    setCoAuthor("");
+    setInstitution("");
+    setCategory("");
+    setIsPublic(false);
+    setFile(null);
+  }
 
   async function openFile(fileCID, fileType, fileHash, isPublic) {
     try {
@@ -330,13 +338,17 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
           const publicCID =
             metadata.publicCID || (await contract.publicCIDMap(fileHash));
 
-          console.log("Version:", version);
-
           try {
-            console.log("Uploader:", uploader);
 
-            console.log("Metadata:", metadata);
-            const hasAccess = await contract.hasAccess(fileHash, currentAccount);
+            const isOwner =
+              uploader &&
+              currentAccount &&
+              uploader.toLowerCase() === currentAccount.toLowerCase();
+
+            const hasAccess =
+              isPublicFile || isOwner || (await contract.hasAccess(fileHash, currentAccount));
+
+            if (!hasAccess) continue;
 
             if (metadata.fileCID || publicCID) {
               versions.push({
@@ -353,6 +365,9 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
                 isPublic: isPublicFile,
                 publicCID: publicCID,
                 hasAccess: hasAccess,
+                institution: metadata.institution,
+                category: metadata.category,
+                tags: metadata.tags,
               });
             }
           } catch (error) {
@@ -521,5 +536,6 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
     loadResearches,
     grantAccess,
     toggleVisibility,
+    resetResearchForm
   };
 }

@@ -38,6 +38,14 @@ function App() {
     loadResearches,
     grantAccess,
     toggleVisibility,
+    file,
+    title,
+    author,
+    description,
+    tags,
+    institution,
+    category,
+    resetResearchForm
   } = useResearch({ contract, account, encryptionKey, setMessage, setError});
 
   // Wrap createResearch to also close the modal on success
@@ -108,6 +116,14 @@ function App() {
         isPublic={isPublic}
         setIsPublic={setIsPublic}
         txLoading={txLoading}
+        file={file}
+        title={title}
+        author={author}
+        description={description}
+        tags={tags}
+        institution={institution}
+        category={category}
+        resetResearchForm={resetResearchForm}
       />
 
       <div className="relative z-10" />
