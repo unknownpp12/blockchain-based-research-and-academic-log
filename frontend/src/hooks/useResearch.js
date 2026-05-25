@@ -67,7 +67,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
   useEffect(() => {
   setResearches([]);
   setMetadataCache({});
-  }, [account]);
+  }, [account, encryptionKey]);
 
   function handleFileChange(event) {
     const selectedFile = event.target.files[0];
@@ -125,6 +125,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
 
               if (version[1] === fileHash) {
                 alert("This file has already been uploaded!");
+                resolve(false);
                 return;
               }
             }
@@ -132,6 +133,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
 
           if (!encryptionKey) {
             alert("Connect wallet first");
+            resolve(false);
             return;
           }
 
@@ -244,15 +246,21 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
       }
 
       if (!encryptionKey) {
-        alert("Connect wallet first");
+        alert("Please sign with the connected wallet before opening private files");
         return;
       }
 
       const encryptedData = await fetchEncryptedFileFromIPFS(fileCID);
 
-      const decrypted = CryptoJS.AES.decrypt(encryptedData, encryptionKey).toString(
-        CryptoJS.enc.Utf8
-      );
+      let decrypted = "";
+
+      try {
+        decrypted = CryptoJS.AES.decrypt(encryptedData, encryptionKey).toString(
+          CryptoJS.enc.Utf8
+        );
+      } catch (decryptError) {
+        throw new Error("Private file could not be decrypted with this wallet signature");
+      }
 
       if (!decrypted) throw new Error("Decryption failed");
 
@@ -268,7 +276,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
 
       window.open(url, "_blank");
     } catch (err) {
-      console.error(err);
+      console.warn(err);
       setError("Cannot open file (wrong wallet, corrupted or access denied)");
       setMessage("");
     }

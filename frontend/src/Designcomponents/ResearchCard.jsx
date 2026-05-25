@@ -28,6 +28,8 @@ export default function ResearchCard({
   account &&
   v.uploader.toLowerCase() === account.toLowerCase();
 
+  const canOpenFile = v.isPublic || isOwner;
+
   return (
     <div
       className={`w-full`}
@@ -145,7 +147,7 @@ export default function ResearchCard({
                   )}
 
                   {/* AVAILABLE TO ALL WITH ACCESS */}
-                  {v.hasAccess && (
+                  {canOpenFile && (
                     <>
                       <button
                         onClick={() =>
@@ -160,6 +162,12 @@ export default function ResearchCard({
                       >
                         Open
                       </button>
+                    </>
+                  )}
+
+                  {/* AVAILABLE TO ALL WITH ACCESS */}
+                  {v.hasAccess && (
+                    <>
                       <button
                         onClick={() => {
                           const citation = generateCitation(v, citationFormat);

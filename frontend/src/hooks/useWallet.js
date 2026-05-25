@@ -10,6 +10,32 @@ export function useWallet() {
   const [encryptionKey, setEncryptionKey] = useState(null);
   const [hasAuthorizedWallet, setHasAuthorizedWallet] = useState(false);
 
+  async function activateWallet(selectedAccount) {
+    setAccount(selectedAccount);
+    setContract(null);
+    setEncryptionKey(null);
+
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const signerAddress = await signer.getAddress();
+    const normalizedAccount = signerAddress || selectedAccount;
+
+    setAccount(normalizedAccount);
+
+    const signature = await signer.signMessage("research-encryption-key");
+    const key = CryptoJS.SHA256(signature).toString();
+
+    const contractInstance = new ethers.Contract(
+      CONTRACT_ADDRESS,
+      ResearchLog.abi,
+      signer
+    );
+
+    setEncryptionKey(key);
+    setContract(contractInstance);
+    return contractInstance;
+  }
+
   useEffect(() => {
     if (!window.ethereum) return;
 
@@ -21,21 +47,14 @@ export function useWallet() {
         return;
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-
-      const contractInstance = new ethers.Contract(
-        CONTRACT_ADDRESS,
-        ResearchLog.abi,
-        signer
-      );
-
-      setAccount(accounts[0]);
-      setContract(contractInstance);
-
-      const signature = await signer.signMessage("research-encryption-key");
-      const key = CryptoJS.SHA256(signature).toString();
-      setEncryptionKey(key);
+      try {
+        await activateWallet(accounts[0]);
+        setHasAuthorizedWallet(true);
+      } catch (err) {
+        console.error("Wallet signature failed:", err);
+        setContract(null);
+        setEncryptionKey(null);
+      }
     };
 
     window.ethereum.on("accountsChanged", handleAccountsChanged);
@@ -77,23 +96,8 @@ export function useWallet() {
       method: "eth_requestAccounts",
     });
 
-    setAccount(accounts[0]);
-
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-
-    const signature = await signer.signMessage("research-encryption-key");
-    const key = CryptoJS.SHA256(signature).toString();
-
-    setEncryptionKey(key);
-
-    const contractInstance = new ethers.Contract(
-      CONTRACT_ADDRESS,
-      ResearchLog.abi,
-      signer
-    );
-
-    setContract(contractInstance);
+    await activateWallet(accounts[0]);
+    setHasAuthorizedWallet(true);
 
   }
 
