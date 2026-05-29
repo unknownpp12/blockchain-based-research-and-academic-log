@@ -31,20 +31,28 @@ export default function ResearchModal({
     const file = e.target.files[0];
     setFileName(file ? file.name : "");
   };
-    const handleSubmit = async () => {
+  
+  const handleSubmit = async () => {
     setSubmitting(true);
-    const success = await createResearch();
 
-    if (success) {
-      setFileName("");
+    try {
+      const success = await createResearch();
 
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      if (success) {
+        setFileName("");
+
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+
+        resetLocalForm();
+        setShowForm(false);
       }
-      resetLocalForm();
-      setShowForm(false);
+    } finally {
+      setSubmitting(false);
     }
   };
+
   const resetLocalForm = () => {
     setFileName("");
 

@@ -1,4 +1,13 @@
-export default function Hero({ account, connectWallet, loadResearches, setShowForm, researches, hashAuthorizedWallet }) {
+export default function Hero({
+  account,
+  connectWallet,
+  registerSharingKey,
+  registeringSharingKey,
+  loadResearches,
+  setShowForm,
+  researches,
+  hashAuthorizedWallet,
+}) {
   const shortAccount = account
     ? `${account.slice(0, 6)}...${account.slice(-4)}`
     : "Not connected";
@@ -29,6 +38,16 @@ export default function Hero({ account, connectWallet, loadResearches, setShowFo
           <button onClick={() => setShowForm(true)} disabled={!account} className="btn-secondary">
             Add
           </button>
+
+          {account && (
+            <button
+              onClick={registerSharingKey}
+              disabled={registeringSharingKey}
+              className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {registeringSharingKey ? "Registering..." : "Register Sharing Key"}
+            </button>
+          )}
         </div>
 
         <div className="mt-6 text-gray-400">

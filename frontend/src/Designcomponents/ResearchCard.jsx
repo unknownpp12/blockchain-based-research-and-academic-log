@@ -6,6 +6,7 @@ export default function ResearchCard({
   researchId,
   account,
   grantAccess,
+  revokeAccess,
   toggleVisibility,
   openFile,
   generateCitation,
@@ -28,7 +29,7 @@ export default function ResearchCard({
   account &&
   v.uploader.toLowerCase() === account.toLowerCase();
 
-  const canOpenFile = v.isPublic || isOwner;
+  const canOpenFile = v.isPublic || isOwner || v.hasAccess;
 
   return (
     <div
@@ -124,12 +125,28 @@ export default function ResearchCard({
                     <>
                       <button
                         onClick={() =>
-                          grantAccess(v.fileHash, shareAddresses[v.fileHash])
+                          grantAccess(
+                            researchId,
+                            index,
+                            v.metadataCID,
+                            v.fileHash,
+                            shareAddresses[v.fileHash]
+                          )
                         }
                         className="btn-secondary"
                         disabled={txLoading}
                       >
                         {txLoading ? "Processing..." : "Share"}
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          revokeAccess(v.fileHash, shareAddresses[v.fileHash])
+                        }
+                        className="btn-secondary"
+                        disabled={txLoading}
+                      >
+                        {txLoading ? "Processing..." : "Remove Access"}
                       </button>
 
                       <button
@@ -152,10 +169,12 @@ export default function ResearchCard({
                       <button
                         onClick={() =>
                           openFile(
+                            v.metadataCID,
                             v.isPublic ? v.publicCID : v.fileCID,
                             v.fileType,
                             v.fileHash,
-                            v.isPublic
+                            v.isPublic,
+                            v.fileName
                           )
                         }
                         className="btn-secondary"

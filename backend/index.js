@@ -9,10 +9,22 @@ const app = express();
 const upload = multer();
 
 app.use(cors({
-  origin: [
-    "http://localhost:3000",
-    "https://blockchain-based-research-and-acade.vercel.app"
-  ],
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      "https://blockchain-based-research-and-acade.vercel.app",
+    ];
+
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      /^http:\/\/localhost:\d+$/.test(origin)
+    ) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error("Not allowed by CORS"));
+  },
   methods: ["GET", "POST"],
   allowedHeaders: ["Content-Type"]
 }));

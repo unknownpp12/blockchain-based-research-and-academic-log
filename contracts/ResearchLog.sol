@@ -31,6 +31,8 @@ contract ResearchLog {
 
     mapping(address => uint256) public ownerResearchCount;
 
+    mapping(address => string) public userPublicKey;
+
     uint256[] public researchIds;
 
     event ResearchCreated(
@@ -197,5 +199,33 @@ contract ResearchLog {
 
     function getResearchIds() public view returns (uint256[] memory) {
         return researchIds;
+    }
+
+    function getOwnerResearchNumber(
+        uint256 _researchId
+    ) public view returns (uint256) {
+        Research storage r = researches[_researchId];
+
+        require(r.id != 0, "Research does not exist");
+
+        return r.ownerResearchNumber;
+    }
+
+    function setPublicKey(string memory _publicKey) public {
+    userPublicKey[msg.sender] = _publicKey;
+}
+
+    function updateVersionMetadata(
+        uint256 _researchId,
+        uint256 _versionIndex,
+        string memory _newMetadataCID
+    ) public {
+        Research storage r = researches[_researchId];
+
+        require(r.id != 0, "Research does not exist");
+        require(msg.sender == r.author, "Only author can update metadata");
+        require(_versionIndex < r.versions.length, "Version does not exist");
+
+        r.versions[_versionIndex].ipfsHash = _newMetadataCID;
     }
 }

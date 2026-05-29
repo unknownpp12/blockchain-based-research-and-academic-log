@@ -132,6 +132,25 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_researchId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getOwnerResearchNumber",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [],
       "name": "getResearchIds",
       "outputs": [
@@ -383,6 +402,19 @@
     {
       "inputs": [
         {
+          "internalType": "string",
+          "name": "_publicKey",
+          "type": "string"
+        }
+      ],
+      "name": "setPublicKey",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "bytes32",
           "name": "_fileHash",
           "type": "bytes32"
@@ -406,6 +438,29 @@
     {
       "inputs": [
         {
+          "internalType": "uint256",
+          "name": "_researchId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_versionIndex",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "_newMetadataCID",
+          "type": "string"
+        }
+      ],
+      "name": "updateVersionMetadata",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "address",
           "name": "",
           "type": "address"
@@ -422,6 +477,25 @@
           "internalType": "bool",
           "name": "",
           "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "userPublicKey",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
         }
       ],
       "stateMutability": "view",

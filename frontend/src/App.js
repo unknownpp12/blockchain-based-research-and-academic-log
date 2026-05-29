@@ -18,7 +18,15 @@ function App() {
   const [citationFormat, setCitationFormat] = useState("APA");
 
   const { message, setMessage, error, setError } = useNotification();
-  const { account, contract, encryptionKey, connectWallet } = useWallet();
+  const {
+    account,
+    contract,
+    encryptionKey,
+    userKeyPair,
+    connectWallet,
+    registerSharingKey,
+    registeringSharingKey,
+  } = useWallet();
 
   const {
     researches,
@@ -37,6 +45,7 @@ function App() {
     openFile,
     loadResearches,
     grantAccess,
+    revokeAccess,
     toggleVisibility,
     file,
     title,
@@ -46,7 +55,7 @@ function App() {
     institution,
     category,
     resetResearchForm
-  } = useResearch({ contract, account, encryptionKey, setMessage, setError});
+  } = useResearch({ contract, account, encryptionKey, userKeyPair, setMessage, setError});
 
   // Wrap createResearch to also close the modal on success
   async function handleCreateResearch() {
@@ -70,15 +79,13 @@ function App() {
       )}
 
       <Navbar
-        account={account}
-        connectWallet={connectWallet}
-        loadResearches={loadResearches}
-        setShowForm={setShowForm}
       />
 
       <Hero
         account={account}
         connectWallet={connectWallet}
+        registerSharingKey={registerSharingKey}
+        registeringSharingKey={registeringSharingKey}
         loadResearches={loadResearches}
         setShowForm={setShowForm}
         researches={researches}
@@ -99,6 +106,7 @@ function App() {
         shareAddresses={shareAddresses}
         setMessage={setMessage}
         setError={setError}
+        revokeAccess={revokeAccess}
       />
 
       <ResearchModal

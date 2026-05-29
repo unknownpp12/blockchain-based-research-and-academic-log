@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { ethers } from "ethers";
 import CryptoJS from "crypto-js";
 import {
   uploadFileToIPFS,
@@ -8,6 +7,13 @@ import {
   fetchMetadataFromIPFS,
   fetchEncryptedFileFromIPFS,
 } from "../services/ipfsService";
+import {
+  makeFileKey,
+  encryptFileKeyForUser,
+  decryptFileKey,
+  publicKeyToBase64,
+  publicKeyFromBase64,
+} from "../utils/cryptoAccess";
 import { arrayBufferToBase64 } from "../utils/helpers";
 
 const ALLOWED_DOCUMENT_EXTENSIONS = [
@@ -29,6 +35,23 @@ const ALLOWED_DOCUMENT_EXTENSIONS = [
   ".epub"
 ];
 
+const MIME_TYPES_BY_EXTENSION = {
+  ".pdf": "application/pdf",
+  ".txt": "text/plain",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".doc": "application/msword",
+  ".xml": "application/xml",
+  ".odt": "application/vnd.oasis.opendocument.text",
+  ".rtf": "application/rtf",
+  ".md": "text/markdown",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".csv": "text/csv",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".html": "text/html",
+  ".htm": "text/html",
+  ".epub": "application/epub+zip",
+};
+
 function isAllowedDocument(file) {
   const fileName = file?.name?.toLowerCase() || "";
   return ALLOWED_DOCUMENT_EXTENSIONS.some((extension) =>
@@ -36,7 +59,79 @@ function isAllowedDocument(file) {
   );
 }
 
-export function useResearch({ contract, account, encryptionKey, setMessage, setError }) {
+function getFileExtension(fileName = "") {
+  const dotIndex = fileName.lastIndexOf(".");
+  return dotIndex >= 0 ? fileName.slice(dotIndex).toLowerCase() : "";
+}
+
+function getFileType(fileType, fileName) {
+  const extension = getFileExtension(fileName);
+  return fileType || MIME_TYPES_BY_EXTENSION[extension] || "application/octet-stream";
+}
+
+function getDownloadFileName(fileName, fileType, fallback = "research-file") {
+  if (fileName && getFileExtension(fileName)) return fileName;
+
+  const matchingExtension = Object.entries(MIME_TYPES_BY_EXTENSION).find(
+    ([, mimeType]) => mimeType === fileType
+  )?.[0];
+
+  return `${fileName || fallback}${matchingExtension || ""}`;
+}
+
+function openBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = fileName;
+  link.target = "_blank";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function isCryptoJSEncryptedText(value) {
+  return typeof value === "string" && value.trim().startsWith("U2FsdGVkX1");
+}
+
+async function ensureContractHasCode(contract) {
+  const provider = contract?.runner?.provider;
+  const address = contract?.target || contract?.address;
+
+  if (!provider || !address) return;
+
+  const code = await provider.getCode(address);
+
+  if (code === "0x") {
+    throw new Error(
+      "No ResearchLog contract found on the selected MetaMask network. Switch to the deployed network or update the contract address."
+    );
+  }
+}
+
+function getResearchLoadErrorMessage(error) {
+  if (error?.code === "BAD_DATA") {
+    return "Could not read the ResearchLog contract. Check that MetaMask is on the correct network and frontend/src/config.js has the deployed address.";
+  }
+
+  return error?.message || "Failed to load researches";
+}
+
+function getUploadErrorMessage(error) {
+  return (
+    error?.reason ||
+    error?.shortMessage ||
+    error?.data?.message ||
+    error?.info?.error?.message ||
+    error?.message ||
+    "Upload failed. Please try again."
+  );
+}
+
+export function useResearch({ contract, account, encryptionKey, userKeyPair, setMessage, setError }) {
   const [researches, setResearches] = useState([]);
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState("");
@@ -114,7 +209,20 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
 
           const fileHash = "0x" + hash;
 
+          const alreadyUploadedByThisWallet = await contract.userFileExists(
+            account,
+            fileHash
+          );
+
+          if (alreadyUploadedByThisWallet) {
+            setError("You already uploaded this exact file with this wallet.");
+            setMessage("");
+            resolve(false);
+            return;
+          }
+
           // Duplicate file detection
+          await ensureContractHasCode(contract);
           const ids = await contract.getResearchIds();
 
           for (let id of ids) {
@@ -137,9 +245,17 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
             return;
           }
 
+          if (!userKeyPair) {
+            alert("Wallet signature is required before uploading encrypted files");
+            resolve(false);
+            return;
+          }
+
           // Encrypt and upload file
+          const fileKey = makeFileKey();
+
           const base64 = arrayBufferToBase64(fileData);
-          const encrypted = CryptoJS.AES.encrypt(base64, encryptionKey).toString();
+          const encrypted = CryptoJS.AES.encrypt(base64, fileKey).toString();
           const blob = new Blob([encrypted], { type: "text/plain" });
 
           const ipfsHash = await uploadFileToIPFS(blob, "encrypted.dat");
@@ -150,6 +266,8 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
             publicCID = await uploadPublicFileToIPFS(file);
           }
 
+          const ownerAddress = account.toLowerCase();
+          const ownerPublicKey = publicKeyToBase64(userKeyPair.publicKey);
           // Build and upload metadata
           const metadata = {
             title,
@@ -157,6 +275,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
             tags: tags.split(",").map((tag) => tag.trim()),
             coAuthor,
             fileType: file.type,
+            fileName: file.name,
             institution,
             category,
             fileHash,
@@ -164,23 +283,34 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
             timestamp: Date.now(),
             isPublic: isPublic,
             publicCID: publicCID || null,
-            author
+            author,
+            ownerPublicKey,
+            keyAccess: {
+              [ownerAddress]: encryptFileKeyForUser(
+                fileKey,
+                userKeyPair.publicKey,
+                userKeyPair.secretKey
+              )
+            }
           };
 
           const metadataCID = await uploadMetadataToIPFS(metadata);
 
           setTxLoading(true);
 
-          const tx = await contract.createResearch(metadataCID, fileHash, isPublic);
+          try {
+            const tx = await contract.createResearch(metadataCID, fileHash, isPublic);
 
-          setMessage("Transaction submitted!");
-          setError("");
+            setMessage("Transaction submitted!");
+            setError("");
 
-          await tx.wait();
-          await loadResearches();
+            await tx.wait();
+            await loadResearches();
 
-          setMessage("Research uploaded successfully!");
-          setTxLoading(false);
+            setMessage("Research uploaded successfully!");
+          } finally {
+            setTxLoading(false);
+          }
 
           // Reset form
           setTitle("");
@@ -195,7 +325,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
           resolve(true);
         } catch (error) {
           console.error("Error inside reader.onload:", error);
-          setError("Upload failed. Please try again.");
+          setError(getUploadErrorMessage(error));
           setMessage("");
           setTxLoading(false);
           resolve(false);
@@ -217,7 +347,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
     setFile(null);
   }
 
-  async function openFile(fileCID, fileType, fileHash, isPublic) {
+  async function openFile(metadataCID, fileCID, fileType, fileHash, isPublic, fileName = "research-file") {
     try {
       
       if(!account || !contract){
@@ -237,11 +367,15 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
         return;
       }
 
+      const downloadFileName = getDownloadFileName(fileName, fileType);
+      const downloadFileType = getFileType(fileType, downloadFileName);
+
       if (isPublic) {
-        window.open(
-          `https://gateway.pinata.cloud/ipfs/${fileCID}`,
-          "_blank"
-        );
+        const response = await fetch(`https://gateway.pinata.cloud/ipfs/${fileCID}`);
+        const rawBlob = await response.blob();
+        const blob = new Blob([rawBlob], { type: downloadFileType });
+
+        openBlob(blob, downloadFileName);
         return;
       }
 
@@ -252,17 +386,44 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
 
       const encryptedData = await fetchEncryptedFileFromIPFS(fileCID);
 
+      if (!isCryptoJSEncryptedText(encryptedData)) {
+        const response = await fetch(`https://gateway.pinata.cloud/ipfs/${fileCID}`);
+        const rawBlob = await response.blob();
+        const blob = new Blob([rawBlob], { type: downloadFileType });
+
+        openBlob(blob, downloadFileName);
+        return;
+      }
+
+      const metadata = await fetchMetadataFromIPFS(metadataCID);
+
+      const encryptedFileKey = metadata.keyAccess?.[account.toLowerCase()];
+
+      if (!encryptedFileKey) {
+        throw new Error("This wallet does not have a shared file key.");
+      }
+
+      const ownerPublicKey = publicKeyFromBase64(metadata.ownerPublicKey);
+
+      const fileKey = decryptFileKey(
+        encryptedFileKey,
+        ownerPublicKey,
+        userKeyPair.secretKey
+      );
+
       let decrypted = "";
 
       try {
-        decrypted = CryptoJS.AES.decrypt(encryptedData, encryptionKey).toString(
+        decrypted = CryptoJS.AES.decrypt(encryptedData, fileKey).toString(
           CryptoJS.enc.Utf8
         );
       } catch (decryptError) {
-        throw new Error("Private file could not be decrypted with this wallet signature");
+        throw new Error("Could not decrypt this file with the shared file key.");
       }
 
-      if (!decrypted) throw new Error("Decryption failed");
+      if (!decrypted) {
+        throw new Error("Could not decrypt this file with the shared file key.");
+      }
 
       const binary = atob(decrypted);
       const u8 = new Uint8Array(binary.length);
@@ -271,13 +432,12 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
         u8[i] = binary.charCodeAt(i);
       }
 
-      const blob = new Blob([u8], { type: fileType });
-      const url = URL.createObjectURL(blob);
+      const blob = new Blob([u8], { type: downloadFileType });
 
-      window.open(url, "_blank");
+      openBlob(blob, downloadFileName);
     } catch (err) {
       console.warn(err);
-      setError("Cannot open file (wrong wallet, corrupted or access denied)");
+      setError(err.message || "Cannot open file (wrong wallet, corrupted or access denied)");
       setMessage("");
     }
   }
@@ -291,12 +451,12 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
 
     setLoadingResearches(true);
     
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    const currentAccount = await signer.getAddress();
+    const currentAccount = account;
 
 
     try {
+      await ensureContractHasCode(contract);
+
       const ids = await contract.getResearchIds();
       let allResearches = [];
       let ownerDisplayCounts = {};
@@ -362,6 +522,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
               versions.push({
                 metadataCID: ipfsHash,
                 fileType: metadata.fileType,
+                fileName: metadata.fileName || metadata.title || "research-file",
                 fileCID: metadata.fileCID || null,
                 title: metadata.title,
                 author: metadata.author || metadata.coAuthor || uploader,
@@ -388,7 +549,8 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
           let ownerResearchNumber = null;
 
           try {
-            ownerResearchNumber = Number(await contract.getOwnerResearchNumber(id));
+            const research = await contract.researches(id);
+            ownerResearchNumber = Number(research.ownerResearchNumber);
           } catch (err) {
             if (owner) {
               ownerDisplayCounts[owner] = (ownerDisplayCounts[owner] || 0) + 1;
@@ -408,15 +570,15 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
       setLoadingResearches(false);
     } catch (error) {
       console.error(error);
-      setError("Failed to load researches");
+      setError(getResearchLoadErrorMessage(error));
       setMessage("");
       setLoadingResearches(false);
     }
   }
 
-  async function grantAccess(fileHash, userAddress) {
+  async function grantAccess(researchId, versionIndex, metadataCID, fileHash, userAddress) {
     try {
-      if(!account || !contract){
+      if (!account || !contract) {
         alert("Connect wallet first");
         return;
       }
@@ -426,32 +588,106 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
         return;
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contractWithSigner = contract.connect(signer);
+      if (!userKeyPair) {
+        alert("Wallet signature is required before sharing encrypted files");
+        return;
+      }
+
+      const recipientAddress = userAddress.trim().toLowerCase();
+      const ownerAddress = account.toLowerCase();
+
+      const metadata = await fetchMetadataFromIPFS(metadataCID);
+      const ownerEncryptedFileKey = metadata.keyAccess?.[ownerAddress];
+
+      if (!ownerEncryptedFileKey || !metadata.ownerPublicKey) {
+        throw new Error("This file does not have shareable encryption metadata");
+      }
+
+      const recipientPublicKey = await contract.userPublicKey(recipientAddress);
+
+      if (!recipientPublicKey) {
+        throw new Error("Recipient must register their public key before you can share encrypted files with them");
+      }
+
+      const fileKey = decryptFileKey(
+        ownerEncryptedFileKey,
+        publicKeyFromBase64(metadata.ownerPublicKey),
+        userKeyPair.secretKey
+      );
+
+      const updatedMetadata = {
+        ...metadata,
+        keyAccess: {
+          ...(metadata.keyAccess || {}),
+          [recipientAddress]: encryptFileKeyForUser(
+            fileKey,
+            publicKeyFromBase64(recipientPublicKey),
+            userKeyPair.secretKey
+          ),
+        },
+      };
+
+      const updatedMetadataCID = await uploadMetadataToIPFS(updatedMetadata);
 
       setTxLoading(true);
 
-      const tx = await contractWithSigner.grantAccess(fileHash, userAddress);
-      
-      await tx.wait();
+      const metadataTx = await contract.updateVersionMetadata(
+        researchId,
+        versionIndex,
+        updatedMetadataCID
+      );
+      await metadataTx.wait();
 
-      alert("✅ File shared successfully!");
+      const accessTx = await contract.grantAccess(fileHash, userAddress.trim());
+      await accessTx.wait();
+
+      await loadResearches();
+
+      alert("File shared successfully!");
       setMessage("");
       setError("");
-
       setTxLoading(false);
-
     } catch (err) {
       console.error(err);
-      if (err.code === 4001 || err.code === "ACTION_REJECTED") {
-      setError("Transaction cancelled");
-    } else {
-      setError("Failed to share file");
-    }
 
-    setMessage("");
-    setTxLoading(false);
+      if (err.code === 4001 || err.code === "ACTION_REJECTED") {
+        setError("Transaction cancelled");
+      } else {
+        setError(err.message || "Failed to share file");
+      }
+
+      setMessage("");
+      setTxLoading(false);
+    }
+  }
+
+  async function revokeAccess(fileHash, userAddress) {
+    try {
+      if (!account || !contract) {
+        alert("Connect wallet first");
+        return;
+      }
+
+      if (!userAddress || userAddress.trim() === "") {
+        alert("Enter address to remove");
+        return;
+      }
+
+      setTxLoading(true);
+
+      const tx = await contract.revokeAccess(fileHash, userAddress);
+      await tx.wait();
+
+      await loadResearches();
+
+      setMessage("Access removed successfully!");
+      setError("");
+      setTxLoading(false);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to remove access");
+      setMessage("");
+      setTxLoading(false);
     }
   }
 
@@ -462,13 +698,9 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
         return;
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contractWithSigner = contract.connect(signer);
-
       if (v.isPublic) {
         setTxLoading(true);
-        const tx = await contractWithSigner.setVisibility(v.fileHash, false, "");
+        const tx = await contract.setVisibility(v.fileHash, false, "");
         setMessage("Transaction submitted!");
         setError("");
         await tx.wait();
@@ -482,7 +714,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
       if (!v.isPublic) {
         if (v.publicCID && v.publicCID !== "") {         
           setTxLoading(true);
-          const tx = await contractWithSigner.setVisibility(v.fileHash, true, "");
+          const tx = await contract.setVisibility(v.fileHash, true, "");
           setMessage("Transaction submitted!");
           setError("");
           await tx.wait();
@@ -502,7 +734,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
 
           setTxLoading(true);
           const publicCID = await uploadPublicFileToIPFS(selectedFile);
-          const tx = await contractWithSigner.setVisibility(v.fileHash, true, publicCID);
+          const tx = await contract.setVisibility(v.fileHash, true, publicCID);
           setMessage("Transaction submitted!");
           setError("");
           await tx.wait();
@@ -543,6 +775,7 @@ export function useResearch({ contract, account, encryptionKey, setMessage, setE
     openFile,
     loadResearches,
     grantAccess,
+    revokeAccess,
     toggleVisibility,
     resetResearchForm
   };

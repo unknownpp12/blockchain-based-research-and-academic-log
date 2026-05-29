@@ -1,4 +1,4 @@
-export default function Navbar({ account, connectWallet, loadResearches, setShowForm }) {
+export default function Navbar() {
     return (
         <header className="rounded-3xl border border-white/10 bg-white/5 px-5 py-4 backdrop-blur-xl">
       <div className="flex justify-between items-center">
